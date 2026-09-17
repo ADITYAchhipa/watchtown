@@ -1,0 +1,105 @@
+@import './inline-styles.css';
+
+/* === WATCHTOWN GLOBAL BASE ENHANCEMENTS === */
+:root {
+  --wd-primary-color: #000000;
+  --wd-alternative-color: #f7ba01;
+  --font-urbanist: 'Urbanist', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-poppins: 'Poppins', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-playfair: 'Playfair Display', Georgia, serif;
+}
+
+html {
+  scroll-behavior: smooth;
+  -webkit-text-size-adjust: 100%;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  color: #333333;
+  background-color: #ffffff;
+  font-family: var(--font-urbanist);
+  font-size: 15px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overflow-x: hidden;
+}
+
+img {
+  max-width: 100%;
+  height: auto;
+  vertical-align: middle;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+  transition: color 0.25s ease, opacity 0.25s ease;
+}
+
+/* Ensure Elementor backgrounds are never suppressed by lazyload pseudo-selectors */
+.e-con.e-parent:not(.e-lazyloaded) {
+  background-image: inherit !important;
+}
+
+/* Slide-out drawer transition classes */
+.wd-side-hidden {
+  transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.35s ease, visibility 0.35s ease !important;
+}
+
+.wd-side-hidden.wd-opened {
+  transform: none !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+}
+
+.wd-close-side {
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.3s ease, visibility 0.3s ease;
+  z-index: 1000;
+}
+
+.wd-close-side.wd-close-side-opened {
+  opacity: 1;
+  visibility: visible;
+}
+
+/* FAQ Accordion Transitions */
+.faq-accordion-item {
+  border-bottom: 1px solid #e2e2e2;
+  margin-bottom: 10px;
+}
+
+.faq-accordion-title {
+  cursor: pointer;
+  user-select: none;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 14px 0;
+}
+
+.faq-accordion-content {
+  overflow: hidden;
+  transition: max-height 0.35s ease, opacity 0.35s ease;
+}
+
+/* Scroll to top button */
+.scrollToTop {
+  transition: opacity 0.3s ease, visibility 0.3s ease, transform 0.3s ease;
+}
+
+.scrollToTop.button-show {
+  opacity: 1 !important;
+  visibility: visible !important;
+  transform: translateY(0) !important;
+}

@@ -1,0 +1,11 @@
+[
+  {
+    "id": "usr_admin_001",
+    "name": "WatchTown Administrator",
+    "email": "admin@watchtown.in",
+    "role": "admin",
+    "passwordHash": "6919e33a2fbe6a7cd0c94b05d18a9334565be6a28a623af717718ef17da19d4f0ba3d085c6df60cb18047470f522fcdbde534b3ee672543f1a7235801da91bb6",
+    "salt": "20ec1c1a1dd84ec80c689a09457e7206",
+    "createdAt": "2026-09-17T15:22:01.728Z"
+  }
+]
