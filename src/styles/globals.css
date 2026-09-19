@@ -103,3 +103,48 @@ a {
   visibility: visible !important;
   transform: translateY(0) !important;
 }
+
+/* === Amazon / Modern App Style Floating Cart Count Badge === */
+.wd-header-cart a {
+  position: relative !important;
+  display: inline-flex !important;
+  align-items: center !important;
+}
+
+.wd-header-cart .wd-tools-icon {
+  position: relative !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+.wd-header-cart .wd-cart-badge,
+.wd-header-cart .wd-tools-icon .wd-cart-number {
+  position: absolute !important;
+  top: -8px !important;
+  right: -10px !important;
+  background: #e11d48 !important;
+  color: #ffffff !important;
+  font-size: 11px !important;
+  font-weight: 800 !important;
+  font-family: var(--font-urbanist), sans-serif !important;
+  line-height: 18px !important;
+  height: 18px !important;
+  min-width: 18px !important;
+  padding: 0 4px !important;
+  border-radius: 9999px !important;
+  text-align: center !important;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.25) !important;
+  z-index: 10 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  border: 2px solid #ffffff !important;
+  pointer-events: none !important;
+}
+
+/* Hide the old text count from the right side of the cart icon */
+.wd-header-cart .wd-tools-text .wd-cart-number {
+  display: none !important;
+}
+

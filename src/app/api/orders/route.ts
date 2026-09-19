@@ -23,8 +23,8 @@ export async function GET(req: NextRequest) {
       limit,
     };
 
-    const result = getOrders(query);
-    const stats = getOrderStats();
+    const result = await getOrders(query);
+    const stats = await getOrderStats();
 
     return NextResponse.json({
       success: true,
@@ -52,7 +52,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const result = createOrder({
+    const result = await createOrder({
       customer,
       items,
       paymentMethod,

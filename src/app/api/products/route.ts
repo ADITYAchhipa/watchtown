@@ -30,9 +30,9 @@ export async function GET(req: NextRequest) {
       limit,
     };
 
-    const result = getProducts(query);
-    const brands = getAllBrands();
-    const categories = getAllCategories();
+    const result = await getProducts(query);
+    const brands = await getAllBrands();
+    const categories = await getAllCategories();
 
     return NextResponse.json({
       success: true,
@@ -62,7 +62,7 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json();
-    const { name, brand, price, image, stock } = body;
+    const { name, price, stock } = body;
 
     if (!name || price === undefined || price === null) {
       return NextResponse.json(
@@ -85,7 +85,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const product = createProduct({
+    const product = await createProduct({
       name: body.name.trim(),
       brand: body.brand?.trim() || 'WatchTown Luxury',
       sku:

@@ -24,10 +24,10 @@ export function PageInteractions() {
 
   // 1. Synchronize dynamic cart and wishlist counts across header & mobile bars
   useEffect(() => {
-    // Cart count
-    const cartCountEls = document.querySelectorAll('.wd-cart-number, .wd-header-cart .wd-tools-count');
-    cartCountEls.forEach((el) => {
-      el.innerHTML = `${cartCount} <span>items</span>`;
+    // Cart count (Amazon / modern app floating count badge)
+    const cartBadgeEls = document.querySelectorAll('.wd-cart-badge, .wd-header-cart .wd-cart-number, .wd-header-cart .wd-tools-count');
+    cartBadgeEls.forEach((el) => {
+      el.textContent = `${cartCount}`;
     });
 
     // Cart subtotal

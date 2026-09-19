@@ -13,6 +13,16 @@ const nextConfig = {
         hostname: 'secure.gravatar.com',
         pathname: '/**',
       },
+      {
+        protocol: 'https',
+        hostname: '**.amazonaws.com',
+        pathname: '/**',
+      },
+      {
+        protocol: 'https',
+        hostname: '**.r2.cloudflarestorage.com',
+        pathname: '/**',
+      },
     ],
   },
   async headers() {
@@ -30,7 +40,7 @@ const nextConfig = {
           },
           {
             key: 'Content-Security-Policy',
-            value: "default-src 'self'; script-src 'self' 'unsafe-eval' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://watchtown.in https://fonts.googleapis.com; img-src 'self' data: blob: https://watchtown.in https://secure.gravatar.com; font-src 'self' https://fonts.gstatic.com https://watchtown.in; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self';"
+            value: "default-src 'self'; script-src 'self' 'unsafe-eval' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://watchtown.in https://fonts.googleapis.com; img-src 'self' data: blob: https://watchtown.in https://secure.gravatar.com https://*.amazonaws.com https://*.r2.cloudflarestorage.com; font-src 'self' https://fonts.gstatic.com https://watchtown.in; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self';",
           },
           {
             key: 'Strict-Transport-Security',

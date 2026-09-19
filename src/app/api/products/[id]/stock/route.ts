@@ -39,7 +39,7 @@ export async function PATCH(
       }
     }
 
-    const updated = updateStock(id, {
+    const updated = await updateStock(id, {
       stock: body.stock !== undefined ? Number(body.stock) : undefined,
       delta: body.delta !== undefined ? Number(body.delta) : undefined,
     });

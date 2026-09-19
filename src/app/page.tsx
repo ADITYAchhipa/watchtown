@@ -9,8 +9,8 @@ import { getProducts } from '@/lib/db';
 
 export const dynamic = 'force-dynamic';
 
-export default function HomePage() {
-  const { products } = getProducts({ limit: 100, sort: 'newest' });
+export default async function HomePage() {
+  const { products } = await getProducts({ limit: 100, sort: 'newest' });
 
   return (
     <>

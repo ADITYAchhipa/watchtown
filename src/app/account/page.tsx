@@ -33,11 +33,24 @@ export default function AccountPage() {
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
+  const [otp, setOtp] = useState('');
+  const [registerStep, setRegisterStep] = useState<'details' | 'otp'>('details');
+  const [resendCooldown, setResendCooldown] = useState(0);
+  const [otpSentMessage, setOtpSentMessage] = useState<string | null>(null);
   const [authError, setAuthError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
   // Active Account Tab
   const [activeTab, setActiveTab] = useState<'orders' | 'profile'>('orders');
+
+  // Resend cooldown timer effect
+  useEffect(() => {
+    if (resendCooldown <= 0) return;
+    const timer = setInterval(() => {
+      setResendCooldown((prev) => Math.max(0, prev - 1));
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [resendCooldown]);
 
   // Check current session
   useEffect(() => {
@@ -67,16 +80,67 @@ export default function AccountPage() {
       .finally(() => setLoading(false));
   }, []);
 
+  const handleSendOtp = async () => {
+    setAuthError(null);
+    setOtpSentMessage(null);
+
+    if (!name.trim()) {
+      setAuthError('Please enter your full name.');
+      return;
+    }
+    if (!email.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+      setAuthError('Please enter a valid email address.');
+      return;
+    }
+    if (!phone.trim()) {
+      setAuthError('Please enter your phone number.');
+      return;
+    }
+    if (!password || password.length < 8) {
+      setAuthError('Password must be at least 8 characters long.');
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      const res = await fetch('/api/auth/send-otp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: email.trim(), name: name.trim(), type: 'register' }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        setAuthError(data.error || 'Failed to send OTP. Please try again.');
+        return;
+      }
+
+      setRegisterStep('otp');
+      setResendCooldown(45);
+      setOtpSentMessage(data.message || `A 6-digit OTP code has been sent to ${email}`);
+    } catch {
+      setAuthError('Network error while requesting verification code.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   const handleAuthSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setAuthError(null);
+
+    if (!isLoginTab && registerStep === 'details') {
+      await handleSendOtp();
+      return;
+    }
+
     setSubmitting(true);
 
     try {
       const endpoint = isLoginTab ? '/api/auth/login' : '/api/auth/register';
       const body = isLoginTab
-        ? { email, password }
-        : { email, password, name, phone, role: 'customer' };
+        ? { email: email.trim(), password }
+        : { email: email.trim(), password, name: name.trim(), phone: phone.trim(), role: 'customer', otp: otp.trim() };
 
       const res = await fetch(endpoint, {
         method: 'POST',
@@ -181,7 +245,9 @@ export default function AccountPage() {
                   type="button"
                   onClick={() => {
                     setIsLoginTab(true);
+                    setRegisterStep('details');
                     setAuthError(null);
+                    setOtpSentMessage(null);
                   }}
                   style={{
                     flex: 1,
@@ -202,6 +268,7 @@ export default function AccountPage() {
                   onClick={() => {
                     setIsLoginTab(false);
                     setAuthError(null);
+                    setOtpSentMessage(null);
                   }}
                   style={{
                     flex: 1,
@@ -234,108 +301,268 @@ export default function AccountPage() {
                 </div>
               )}
 
-              <form onSubmit={handleAuthSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-                {!isLoginTab && (
-                  <div>
-                    <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#374151', marginBottom: 4 }}>
-                      Full Name
-                    </label>
-                    <input
-                      type="text"
-                      required
-                      value={name}
-                      onChange={(e) => setName(e.target.value)}
-                      placeholder="e.g. Rahul Sharma"
-                      style={{
-                        width: '100%',
-                        padding: '10px 12px',
-                        borderRadius: 8,
-                        border: '1px solid #d1d5db',
-                        fontSize: 14,
-                      }}
-                    />
-                  </div>
-                )}
-
-                <div>
-                  <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#374151', marginBottom: 4 }}>
-                    Email Address
-                  </label>
-                  <input
-                    type="email"
-                    required
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    placeholder="name@domain.com"
-                    style={{
-                      width: '100%',
-                      padding: '10px 12px',
-                      borderRadius: 8,
-                      border: '1px solid #d1d5db',
-                      fontSize: 14,
-                    }}
-                  />
-                </div>
-
-                {!isLoginTab && (
-                  <div>
-                    <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#374151', marginBottom: 4 }}>
-                      Phone Number
-                    </label>
-                    <input
-                      type="tel"
-                      required
-                      value={phone}
-                      onChange={(e) => setPhone(e.target.value)}
-                      placeholder="10-digit mobile number"
-                      style={{
-                        width: '100%',
-                        padding: '10px 12px',
-                        borderRadius: 8,
-                        border: '1px solid #d1d5db',
-                        fontSize: 14,
-                      }}
-                    />
-                  </div>
-                )}
-
-                <div>
-                  <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#374151', marginBottom: 4 }}>
-                    Password
-                  </label>
-                  <input
-                    type="password"
-                    required
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    placeholder="••••••••"
-                    style={{
-                      width: '100%',
-                      padding: '10px 12px',
-                      borderRadius: 8,
-                      border: '1px solid #d1d5db',
-                      fontSize: 14,
-                    }}
-                  />
-                </div>
-
-                <button
-                  type="submit"
-                  disabled={submitting}
+              {otpSentMessage && !isLoginTab && (
+                <div
                   style={{
-                    marginTop: 8,
-                    background: 'linear-gradient(135deg, #1f2636, #0b0d11)',
-                    color: '#d4af37',
-                    border: '1px solid rgba(212, 175, 55, 0.4)',
-                    padding: '12px',
+                    padding: '10px 14px',
+                    background: '#ecfdf5',
                     borderRadius: 8,
-                    fontSize: 14,
-                    fontWeight: 700,
-                    cursor: submitting ? 'wait' : 'pointer',
+                    color: '#065f46',
+                    fontSize: 13,
+                    marginBottom: 16,
+                    border: '1px solid #a7f3d0',
                   }}
                 >
-                  {submitting ? 'Please wait...' : isLoginTab ? 'Sign In to Account' : 'Complete Registration'}
-                </button>
+                  {otpSentMessage}
+                </div>
+              )}
+
+              <form onSubmit={handleAuthSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                {/* LOGIN TAB OR REGISTER STEP 1 (DETAILS) */}
+                {(isLoginTab || registerStep === 'details') && (
+                  <>
+                    {!isLoginTab && (
+                      <div>
+                        <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#374151', marginBottom: 4 }}>
+                          Full Name
+                        </label>
+                        <input
+                          type="text"
+                          required
+                          value={name}
+                          onChange={(e) => setName(e.target.value)}
+                          placeholder="e.g. Rahul Sharma"
+                          style={{
+                            width: '100%',
+                            padding: '10px 12px',
+                            borderRadius: 8,
+                            border: '1px solid #d1d5db',
+                            fontSize: 14,
+                          }}
+                        />
+                      </div>
+                    )}
+
+                    <div>
+                      <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#374151', marginBottom: 4 }}>
+                        Email Address
+                      </label>
+                      <input
+                        type="email"
+                        required
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        placeholder="name@domain.com"
+                        style={{
+                          width: '100%',
+                          padding: '10px 12px',
+                          borderRadius: 8,
+                          border: '1px solid #d1d5db',
+                          fontSize: 14,
+                        }}
+                      />
+                    </div>
+
+                    {!isLoginTab && (
+                      <div>
+                        <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#374151', marginBottom: 4 }}>
+                          Phone Number
+                        </label>
+                        <input
+                          type="tel"
+                          required
+                          value={phone}
+                          onChange={(e) => setPhone(e.target.value)}
+                          placeholder="10-digit mobile number"
+                          style={{
+                            width: '100%',
+                            padding: '10px 12px',
+                            borderRadius: 8,
+                            border: '1px solid #d1d5db',
+                            fontSize: 14,
+                          }}
+                        />
+                      </div>
+                    )}
+
+                    <div>
+                      <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#374151', marginBottom: 4 }}>
+                        Password
+                      </label>
+                      <input
+                        type="password"
+                        required
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        placeholder="••••••••"
+                        style={{
+                          width: '100%',
+                          padding: '10px 12px',
+                          borderRadius: 8,
+                          border: '1px solid #d1d5db',
+                          fontSize: 14,
+                        }}
+                      />
+                      {!isLoginTab && (
+                        <p style={{ fontSize: 11, color: '#9ca3af', margin: '4px 0 0 0' }}>
+                          Must be at least 8 characters long.
+                        </p>
+                      )}
+                    </div>
+
+                    <button
+                      type="submit"
+                      disabled={submitting}
+                      style={{
+                        marginTop: 8,
+                        background: 'linear-gradient(135deg, #1f2636, #0b0d11)',
+                        color: '#d4af37',
+                        border: '1px solid rgba(212, 175, 55, 0.4)',
+                        padding: '12px',
+                        borderRadius: 8,
+                        fontSize: 14,
+                        fontWeight: 700,
+                        cursor: submitting ? 'wait' : 'pointer',
+                      }}
+                    >
+                      {submitting
+                        ? 'Please wait...'
+                        : isLoginTab
+                        ? 'Sign In to Account'
+                        : 'Send Verification OTP →'}
+                    </button>
+                  </>
+                )}
+
+                {/* REGISTER STEP 2: ENTER OTP */}
+                {!isLoginTab && registerStep === 'otp' && (
+                  <>
+                    <div
+                      style={{
+                        background: '#f9fafb',
+                        border: '1px solid #e5e7eb',
+                        borderRadius: 8,
+                        padding: '12px 14px',
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                      }}
+                    >
+                      <div>
+                        <div style={{ fontSize: 11, color: '#6b7280', textTransform: 'uppercase', fontWeight: 700 }}>
+                          Sending Code To
+                        </div>
+                        <div style={{ fontSize: 14, fontWeight: 600, color: '#111827' }}>{email}</div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setRegisterStep('details');
+                          setOtp('');
+                          setAuthError(null);
+                        }}
+                        style={{
+                          background: 'none',
+                          border: 'none',
+                          color: '#d4af37',
+                          fontSize: 12,
+                          fontWeight: 700,
+                          cursor: 'pointer',
+                          textDecoration: 'underline',
+                        }}
+                      >
+                        Change
+                      </button>
+                    </div>
+
+                    <div>
+                      <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: '#374151', marginBottom: 6 }}>
+                        Enter 6-Digit Email OTP
+                      </label>
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        autoComplete="one-time-code"
+                        required
+                        maxLength={6}
+                        autoFocus
+                        value={otp}
+                        onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                        placeholder="••••••"
+                        style={{
+                          width: '100%',
+                          padding: '12px',
+                          borderRadius: 8,
+                          border: '2px solid #d4af37',
+                          fontSize: 24,
+                          fontWeight: 800,
+                          textAlign: 'center',
+                          letterSpacing: '8px',
+                          fontFamily: 'monospace',
+                          background: '#ffffff',
+                        }}
+                      />
+                    </div>
+
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 13 }}>
+                      <span style={{ color: '#6b7280' }}>Didn&apos;t get the code?</span>
+                      <button
+                        type="button"
+                        disabled={resendCooldown > 0 || submitting}
+                        onClick={handleSendOtp}
+                        style={{
+                          background: 'none',
+                          border: 'none',
+                          color: resendCooldown > 0 ? '#9ca3af' : '#d4af37',
+                          fontWeight: 700,
+                          cursor: resendCooldown > 0 ? 'not-allowed' : 'pointer',
+                          padding: 0,
+                        }}
+                      >
+                        {resendCooldown > 0 ? `Resend in ${resendCooldown}s` : 'Resend OTP'}
+                      </button>
+                    </div>
+
+                    <button
+                      type="submit"
+                      disabled={submitting || otp.length < 6}
+                      style={{
+                        marginTop: 8,
+                        background: otp.length === 6 ? 'linear-gradient(135deg, #1f2636, #0b0d11)' : '#9ca3af',
+                        color: '#d4af37',
+                        border: '1px solid rgba(212, 175, 55, 0.4)',
+                        padding: '12px',
+                        borderRadius: 8,
+                        fontSize: 14,
+                        fontWeight: 700,
+                        cursor: submitting || otp.length < 6 ? 'not-allowed' : 'pointer',
+                      }}
+                    >
+                      {submitting ? 'Verifying OTP...' : 'Verify OTP & Complete Registration'}
+                    </button>
+
+                    <div style={{ textAlign: 'center', marginTop: 4 }}>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setRegisterStep('details');
+                          setOtp('');
+                          setAuthError(null);
+                        }}
+                        style={{
+                          background: 'none',
+                          border: 'none',
+                          color: '#6b7280',
+                          fontSize: 12,
+                          fontWeight: 600,
+                          cursor: 'pointer',
+                        }}
+                      >
+                        &larr; Back to registration details
+                      </button>
+                    </div>
+                  </>
+                )}
               </form>
 
               {/* Admin Portal Shortcut */}

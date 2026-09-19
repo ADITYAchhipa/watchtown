@@ -3,6 +3,7 @@ import path from 'path';
 import crypto from 'crypto';
 import { Order, OrderItem, CustomerAddress, OrderStatus, OrderStats } from '@/types';
 import { updateStock, getProductById } from './db';
+import { getMongoCollection, isMongoConfigured } from './mongodb';
 
 const DB_DIR = path.join(process.cwd(), 'data');
 const ORDERS_FILE = path.join(DB_DIR, 'orders.json');
@@ -143,35 +144,79 @@ const SEED_ORDERS: Order[] = [
   },
 ];
 
-let cache: Order[] | null = null;
+let localCache: Order[] | null = null;
+let mongoOrdersSeeded = false;
 
-function readOrders(): Order[] {
-  if (cache) return cache;
+function readOrdersFromFile(): Order[] {
+  if (localCache) return localCache;
 
   ensureDbDirectory();
   if (!fs.existsSync(ORDERS_FILE)) {
     fs.writeFileSync(ORDERS_FILE, JSON.stringify(SEED_ORDERS, null, 2), 'utf8');
-    cache = [...SEED_ORDERS];
-    return cache;
+    localCache = [...SEED_ORDERS];
+    return localCache;
   }
 
   try {
     const raw = fs.readFileSync(ORDERS_FILE, 'utf8');
-    cache = JSON.parse(raw) as Order[];
-    return cache;
+    localCache = JSON.parse(raw) as Order[];
+    return localCache;
   } catch (err) {
     console.error('Failed to read orders DB:', err);
-    cache = [...SEED_ORDERS];
-    return cache;
+    localCache = [...SEED_ORDERS];
+    return localCache;
   }
 }
 
-function writeOrders(orders: Order[]): void {
+function writeOrdersToFile(orders: Order[]): void {
   ensureDbDirectory();
-  cache = orders;
+  localCache = orders;
   const tmpFile = `${ORDERS_FILE}.tmp.${Date.now()}`;
   fs.writeFileSync(tmpFile, JSON.stringify(orders, null, 2), 'utf8');
   fs.renameSync(tmpFile, ORDERS_FILE);
+}
+
+async function getOrdersCollection() {
+  const collection = await getMongoCollection<Order>('orders');
+  if (!collection) return null;
+
+  if (!mongoOrdersSeeded) {
+    mongoOrdersSeeded = true;
+    try {
+      const count = await collection.countDocuments();
+      if (count === 0) {
+        console.log('[MongoDB] Seeding orders collection from local data...');
+        const initial = fs.existsSync(ORDERS_FILE)
+          ? (JSON.parse(fs.readFileSync(ORDERS_FILE, 'utf8')) as Order[])
+          : SEED_ORDERS;
+        if (initial.length > 0) {
+          const cleaned = initial.map((o) => {
+            const copy = { ...o };
+            delete (copy as any)._id;
+            return copy;
+          });
+          await collection.insertMany(cleaned as any);
+          await collection.createIndex({ id: 1 }, { unique: true });
+          await collection.createIndex({ orderNumber: 1 });
+          await collection.createIndex({ 'customer.phone': 1 });
+          await collection.createIndex({ 'customer.email': 1 });
+          await collection.createIndex({ status: 1 });
+          console.log(`[MongoDB] Successfully seeded ${initial.length} orders!`);
+        }
+      }
+    } catch (err) {
+      console.error('[MongoDB] Error during orders seeding:', err);
+    }
+  }
+
+  return collection;
+}
+
+function sanitizeDoc<T extends Record<string, any>>(doc: T): T {
+  if (!doc) return doc;
+  const clean = { ...doc };
+  delete (clean as any)._id;
+  return clean;
 }
 
 export interface GetOrdersQuery {
@@ -181,13 +226,55 @@ export interface GetOrdersQuery {
   limit?: number;
 }
 
-export function getOrders(query: GetOrdersQuery = {}): {
+export async function getOrders(query: GetOrdersQuery = {}): Promise<{
   orders: Order[];
   total: number;
   page: number;
   totalPages: number;
-} {
-  const all = readOrders();
+}> {
+  const page = Math.max(1, query.page || 1);
+
+  if (isMongoConfigured()) {
+    const col = await getOrdersCollection();
+    if (col) {
+      const filter: any = {};
+
+      if (query.status && query.status !== 'all') {
+        filter.status = query.status;
+      }
+
+      if (query.search && query.search.trim()) {
+        const s = query.search.trim();
+        filter.$or = [
+          { orderNumber: { $regex: s, $options: 'i' } },
+          { 'customer.fullName': { $regex: s, $options: 'i' } },
+          { 'customer.phone': { $regex: s, $options: 'i' } },
+          { 'customer.city': { $regex: s, $options: 'i' } },
+          { 'items.name': { $regex: s, $options: 'i' } },
+        ];
+      }
+
+      const total = await col.countDocuments(filter);
+      const limit = query.limit || total || 50;
+      const totalPages = Math.ceil(total / limit) || 1;
+
+      const cursor = col.find(filter).sort({ createdAt: -1 });
+      if (query.limit) {
+        cursor.skip((page - 1) * limit).limit(limit);
+      }
+
+      const docs = await cursor.toArray();
+      return {
+        orders: docs.map(sanitizeDoc),
+        total,
+        page,
+        totalPages,
+      };
+    }
+  }
+
+  // File fallback
+  const all = readOrdersFromFile();
   let list = [...all];
 
   if (query.status && query.status !== 'all') {
@@ -206,11 +293,9 @@ export function getOrders(query: GetOrdersQuery = {}): {
     );
   }
 
-  // Sort newest first
   list.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
   const total = list.length;
-  const page = Math.max(1, query.page || 1);
   const limit = query.limit || total;
   const totalPages = Math.ceil(total / limit) || 1;
 
@@ -222,8 +307,21 @@ export function getOrders(query: GetOrdersQuery = {}): {
   return { orders: list, total, page, totalPages };
 }
 
-export function getOrderById(id: string): Order | null {
-  const all = readOrders();
+export async function getOrderById(id: string): Promise<Order | null> {
+  if (isMongoConfigured()) {
+    const col = await getOrdersCollection();
+    if (col) {
+      const doc = await col.findOne({
+        $or: [
+          { id: id },
+          { orderNumber: { $regex: `^${id.trim()}$`, $options: 'i' } },
+        ],
+      });
+      if (doc) return sanitizeDoc(doc);
+    }
+  }
+
+  const all = readOrdersFromFile();
   const found = all.find((o) => o.id === id || o.orderNumber.toLowerCase() === id.toLowerCase());
   return found || null;
 }
@@ -235,7 +333,7 @@ export interface CreateOrderInput {
   notes?: string;
 }
 
-export function createOrder(input: CreateOrderInput): { order: Order } | { error: string } {
+export async function createOrder(input: CreateOrderInput): Promise<{ order: Order } | { error: string }> {
   if (!input.items || input.items.length === 0) {
     return { error: 'No items in order.' };
   }
@@ -255,7 +353,7 @@ export function createOrder(input: CreateOrderInput): { order: Order } | { error
       return { error: `Invalid quantity for "${item.name}".` };
     }
 
-    const product = getProductById(item.productId);
+    const product = await getProductById(item.productId);
     if (!product) {
       return { error: `Product "${item.name}" was not found.` };
     }
@@ -272,7 +370,7 @@ export function createOrder(input: CreateOrderInput): { order: Order } | { error
 
   // Deduct stock for all items
   for (const item of input.items) {
-    updateStock(item.productId, { delta: -item.quantity });
+    await updateStock(item.productId, { delta: -item.quantity });
   }
 
   const subtotal = input.items.reduce((sum, it) => sum + it.price * it.quantity, 0);
@@ -298,14 +396,22 @@ export function createOrder(input: CreateOrderInput): { order: Order } | { error
     updatedAt: now,
   };
 
-  const all = readOrders();
+  if (isMongoConfigured()) {
+    const col = await getOrdersCollection();
+    if (col) {
+      await col.insertOne(newOrder as any);
+      return { order: sanitizeDoc(newOrder) };
+    }
+  }
+
+  const all = readOrdersFromFile();
   all.unshift(newOrder);
-  writeOrders(all);
+  writeOrdersToFile(all);
 
   return { order: newOrder };
 }
 
-export function updateOrderStatus(
+export async function updateOrderStatus(
   id: string,
   updates: {
     status?: OrderStatus;
@@ -313,12 +419,9 @@ export function updateOrderStatus(
     courier?: string;
     notes?: string;
   }
-): Order | null {
-  const all = readOrders();
-  const index = all.findIndex((o) => o.id === id || o.orderNumber === id);
-  if (index === -1) return null;
-
-  const existing = all[index];
+): Promise<Order | null> {
+  const existing = await getOrderById(id);
+  if (!existing) return null;
 
   if (updates.status) {
     const VALID_STATUSES: OrderStatus[] = ['pending', 'confirmed', 'dispatched', 'delivered', 'cancelled'];
@@ -330,7 +433,7 @@ export function updateOrderStatus(
   // If order was cancelled, restore inventory stock
   if (updates.status === 'cancelled' && existing.status !== 'cancelled') {
     for (const item of existing.items) {
-      updateStock(item.productId, { delta: item.quantity });
+      await updateStock(item.productId, { delta: item.quantity });
     }
   }
 
@@ -340,13 +443,70 @@ export function updateOrderStatus(
     updatedAt: new Date().toISOString(),
   };
 
-  all[index] = updated;
-  writeOrders(all);
+  if (isMongoConfigured()) {
+    const col = await getOrdersCollection();
+    if (col) {
+      await col.updateOne(
+        { $or: [{ id }, { orderNumber: id }] },
+        { $set: updated }
+      );
+      return sanitizeDoc(updated);
+    }
+  }
+
+  const all = readOrdersFromFile();
+  const index = all.findIndex((o) => o.id === id || o.orderNumber === id);
+  if (index !== -1) {
+    all[index] = updated;
+    writeOrdersToFile(all);
+  }
+
   return updated;
 }
 
-export function getOrderStats(): OrderStats {
-  const all = readOrders();
+export async function getOrderStats(): Promise<OrderStats> {
+  if (isMongoConfigured()) {
+    const col = await getOrdersCollection();
+    if (col) {
+      const allDocs = await col.find({}).toArray();
+      let totalRevenue = 0;
+      let pendingCount = 0;
+      let confirmedCount = 0;
+      let dispatchedCount = 0;
+      let deliveredCount = 0;
+
+      for (const o of allDocs) {
+        if (o.status !== 'cancelled') {
+          totalRevenue += o.total;
+        }
+        switch (o.status) {
+          case 'pending':
+            pendingCount++;
+            break;
+          case 'confirmed':
+            confirmedCount++;
+            break;
+          case 'dispatched':
+            dispatchedCount++;
+            break;
+          case 'delivered':
+            deliveredCount++;
+            break;
+        }
+      }
+
+      return {
+        totalOrders: allDocs.length,
+        totalRevenue,
+        pendingCount,
+        confirmedCount,
+        dispatchedCount,
+        deliveredCount,
+      };
+    }
+  }
+
+  const all = readOrdersFromFile();
   let totalRevenue = 0;
   let pendingCount = 0;
   let confirmedCount = 0;

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   Package,
@@ -31,6 +31,7 @@ import {
   Calendar,
   CreditCard,
   Eye,
+  Upload,
 } from 'lucide-react';
 import { Product, InventoryStats, AuthSession, Order, OrderStats, OrderStatus } from '@/types';
 
@@ -1244,6 +1245,37 @@ function ProductFormModal({
     product?.description ||
       'Master crafted 7AA luxury replica with original Japanese automatic movement, solid stainless steel links, sapphire glass, and luxury brand gift box.'
   );
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploading(true);
+    setUploadError(null);
+
+    try {
+      const fd = new FormData();
+      fd.append('file', file);
+      fd.append('folder', 'watches');
+
+      const res = await fetch('/api/admin/upload', {
+        method: 'POST',
+        body: fd,
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to upload image.');
+      }
+
+      setImage(data.url);
+    } catch (err: any) {
+      setUploadError(err.message || 'Upload failed');
+    } finally {
+      setUploading(false);
+    }
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -1282,7 +1314,30 @@ function ProductFormModal({
         <form onSubmit={handleSubmit}>
           <div className="admin-modal-body">
             <div className="admin-form-group">
-              <label className="admin-label">Product Image URL</label>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                <label className="admin-label" style={{ margin: 0 }}>Product Image</label>
+                <label
+                  className="admin-btn admin-btn-secondary"
+                  style={{
+                    fontSize: 12,
+                    padding: '4px 10px',
+                    cursor: uploading ? 'not-allowed' : 'pointer',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 6,
+                  }}
+                >
+                  <Upload size={13} />
+                  {uploading ? 'Uploading to S3...' : 'Upload Image (S3)'}
+                  <input
+                    type="file"
+                    accept="image/*"
+                    disabled={uploading}
+                    onChange={handleFileUpload}
+                    style={{ display: 'none' }}
+                  />
+                </label>
+              </div>
               <div style={{ display: 'flex', gap: 14, alignItems: 'center' }}>
                 <img
                   src={image}
@@ -1306,12 +1361,18 @@ function ProductFormModal({
                     required
                     className="admin-input"
                     value={image}
-                    placeholder="https://watchtown.in/wp-content/uploads/..."
+                    placeholder="https://... or S3 URL"
                     onChange={(e) => setImage(e.target.value)}
                   />
-                  <div style={{ fontSize: 11, color: 'var(--admin-text-dim)', marginTop: 4 }}>
-                    Direct image link (JPG/PNG/WEBP)
-                  </div>
+                  {uploadError ? (
+                    <div style={{ fontSize: 11, color: '#f87171', marginTop: 4 }}>
+                      {uploadError}
+                    </div>
+                  ) : (
+                    <div style={{ fontSize: 11, color: 'var(--admin-text-dim)', marginTop: 4 }}>
+                      Upload directly to S3 or paste image URL
+                    </div>
+                  )}
                 </div>
               </div>
             </div>

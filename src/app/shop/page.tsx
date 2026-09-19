@@ -24,9 +24,9 @@ interface ShopPageProps {
 
 export default async function ShopPage({ searchParams }: ShopPageProps) {
   const { search, brand, category, maxPrice, sort } = await searchParams;
-  const { products } = getProducts({ limit: 200, sort: 'newest' });
-  const brands = getAllBrands();
-  const categories = getAllCategories();
+  const { products } = await getProducts({ limit: 200, sort: 'newest' });
+  const brands = await getAllBrands();
+  const categories = await getAllCategories();
 
   let initialPriceRange: 'all' | 'under_2500' | 'under_5000' | 'above_5000' = 'all';
   if (maxPrice === '2000' || maxPrice === '2500') initialPriceRange = 'under_2500';

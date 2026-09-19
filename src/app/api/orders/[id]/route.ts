@@ -16,7 +16,7 @@ export async function GET(
     }
 
     const { id } = await params;
-    const order = getOrderById(id);
+    const order = await getOrderById(id);
 
     if (!order) {
       return NextResponse.json({ error: 'Order not found.' }, { status: 404 });
@@ -52,7 +52,7 @@ export async function PATCH(
     const { id } = await params;
     const body = await req.json();
 
-    const updated = updateOrderStatus(id, {
+    const updated = await updateOrderStatus(id, {
       status: body.status,
       trackingNumber: body.trackingNumber,
       courier: body.courier,

@@ -8,7 +8,7 @@ export async function GET(
 ) {
   try {
     const { id } = await params;
-    const product = getProductById(id);
+    const product = await getProductById(id);
 
     if (!product) {
       return NextResponse.json({ error: 'Product not found.' }, { status: 404 });
@@ -59,7 +59,7 @@ export async function PUT(
     const sanitized = Object.fromEntries(
       Object.entries(allowedFields).filter(([_, v]) => v !== undefined)
     );
-    const updated = updateProduct(id, sanitized);
+    const updated = await updateProduct(id, sanitized);
     if (!updated) {
       return NextResponse.json({ error: 'Product not found.' }, { status: 404 });
     }
@@ -85,7 +85,7 @@ export async function DELETE(
     }
 
     const { id } = await params;
-    const success = deleteProduct(id);
+    const success = await deleteProduct(id);
 
     if (!success) {
       return NextResponse.json({ error: 'Product not found.' }, { status: 404 });

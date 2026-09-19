@@ -34,6 +34,10 @@ export function DynamicProductsCatalog({ initialProducts }: DynamicProductsCatal
   const [addedId, setAddedId] = useState<string | number | null>(null);
   const [quickViewProduct, setQuickViewProduct] = useState<Product | null>(null);
 
+  if (initialProducts.length === 0) {
+    return null;
+  }
+
   // Tabs
   const TABS = [
     { id: 'all', label: 'All Watches' },

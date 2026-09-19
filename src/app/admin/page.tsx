@@ -18,12 +18,12 @@ export default async function AdminDashboardPage() {
     redirect('/admin/login');
   }
 
-  const { products } = getProducts({ limit: 200, sort: 'newest' });
-  const stats = getInventoryStats();
-  const brands = getAllBrands();
-  const categories = getAllCategories();
-  const { orders } = getOrders({ limit: 100 });
-  const orderStats = getOrderStats();
+  const { products } = await getProducts({ limit: 200, sort: 'newest' });
+  const stats = await getInventoryStats();
+  const brands = await getAllBrands();
+  const categories = await getAllCategories();
+  const { orders } = await getOrders({ limit: 100 });
+  const orderStats = await getOrderStats();
 
   return (
     <AdminDashboardClient

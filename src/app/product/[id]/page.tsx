@@ -15,7 +15,7 @@ export async function generateMetadata({
   params,
 }: ProductPageProps): Promise<Metadata> {
   const { id } = await params;
-  const product = getProductById(id);
+  const product = await getProductById(id);
 
   if (!product) {
     return {
@@ -43,13 +43,13 @@ export async function generateMetadata({
 
 export default async function ProductPage({ params }: ProductPageProps) {
   const { id } = await params;
-  const product = getProductById(id);
+  const product = await getProductById(id);
 
   if (!product) {
     notFound();
   }
 
-  const { products: all } = getProducts({ limit: 50 });
+  const { products: all } = await getProducts({ limit: 50 });
   const relatedProducts = all.filter(
     (p) => String(p.id) !== String(product.id) && (p.brand === product.brand || p.categories.some((c) => product.categories.includes(c)))
   );

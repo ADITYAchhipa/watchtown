@@ -12,7 +12,7 @@ export async function GET() {
       );
     }
 
-    const stats = getInventoryStats();
+    const stats = await getInventoryStats();
     return NextResponse.json({ success: true, stats });
   } catch (err) {
     console.error('Error fetching admin stats:', err);

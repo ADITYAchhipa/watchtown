@@ -4,6 +4,7 @@ import path from 'path';
 import util from 'util';
 import { cookies } from 'next/headers';
 import { User, AuthSession } from '@/types';
+import { getMongoCollection, isMongoConfigured } from './mongodb';
 
 const pbkdf2Async = util.promisify(crypto.pbkdf2);
 
@@ -54,7 +55,71 @@ async function verifyPassword(password: string, hash: string, salt: string): Pro
   return crypto.timingSafeEqual(expectedHashBuffer, computedHashBuffer);
 }
 
+let mongoUsersSeeded = false;
+
+async function getUsersCollection() {
+  const col = await getMongoCollection<StoredUser>('users');
+  if (!col) return null;
+
+  if (!mongoUsersSeeded) {
+    mongoUsersSeeded = true;
+    try {
+      const count = await col.countDocuments();
+      if (count === 0) {
+        console.log('[MongoDB] Seeding users collection...');
+        if (fs.existsSync(USERS_FILE)) {
+          const localUsers = JSON.parse(fs.readFileSync(USERS_FILE, 'utf8')) as StoredUser[];
+          if (localUsers.length > 0) {
+            const cleaned = localUsers.map((u) => {
+              const copy = { ...u };
+              delete (copy as any)._id;
+              return copy;
+            });
+            await col.insertMany(cleaned as any);
+            await col.createIndex({ email: 1 }, { unique: true });
+            console.log(`[MongoDB] Successfully seeded ${localUsers.length} users!`);
+            return col;
+          }
+        }
+
+        // Generate initial default admin
+        const defaultPassword = process.env.ADMIN_DEFAULT_PASSWORD || crypto.randomBytes(12).toString('base64url');
+        console.log(`[SECURITY] Generated WatchTown Administrator password: ${defaultPassword}`);
+        const { hash, salt } = await hashPassword(defaultPassword);
+        const defaultAdmin: StoredUser = {
+          id: crypto.randomUUID(),
+          name: 'WatchTown Administrator',
+          email: 'admin@watchtown.in',
+          role: 'admin',
+          passwordHash: hash,
+          salt,
+          createdAt: new Date().toISOString(),
+        };
+        await col.insertOne(defaultAdmin as any);
+        await col.createIndex({ email: 1 }, { unique: true });
+        console.log('[MongoDB] Default administrator account created.');
+      }
+    } catch (err) {
+      console.error('[MongoDB] Error seeding users:', err);
+    }
+  }
+
+  return col;
+}
+
 async function readUsers(): Promise<StoredUser[]> {
+  if (isMongoConfigured()) {
+    const col = await getUsersCollection();
+    if (col) {
+      const docs = await col.find({}).toArray();
+      return docs.map((d) => {
+        const clean = { ...d };
+        delete (clean as any)._id;
+        return clean as StoredUser;
+      });
+    }
+  }
+
   ensureDbDirectory();
   if (!fs.existsSync(USERS_FILE)) {
     // Seed default administrator
@@ -83,7 +148,17 @@ async function readUsers(): Promise<StoredUser[]> {
   }
 }
 
-function writeUsers(users: StoredUser[]): void {
+async function writeUsers(users: StoredUser[], newUser?: StoredUser): Promise<void> {
+  if (isMongoConfigured()) {
+    const col = await getUsersCollection();
+    if (col && newUser) {
+      const clean = { ...newUser };
+      delete (clean as any)._id;
+      await col.insertOne(clean as any);
+      return;
+    }
+  }
+
   ensureDbDirectory();
   const tmpFile = `${USERS_FILE}.tmp.${Date.now()}`;
   fs.writeFileSync(tmpFile, JSON.stringify(users, null, 2), 'utf8');
@@ -188,7 +263,7 @@ export async function loginUser(email: string, password: string): Promise<{ sess
     secure: process.env.NODE_ENV === 'production',
     sameSite: 'lax',
     path: '/',
-    maxAge: 7 * 24 * 60 * 60,
+    maxAge: Math.floor(SESSION_DURATION_MS / 1000),
   });
 
   return {
@@ -201,6 +276,12 @@ export async function loginUser(email: string, password: string): Promise<{ sess
       createdAt: user.createdAt,
     },
   };
+}
+
+export async function checkUserExists(email: string): Promise<boolean> {
+  const normalizedEmail = email.trim().toLowerCase();
+  const users = await readUsers();
+  return users.some((u) => u.email.toLowerCase() === normalizedEmail);
 }
 
 export async function registerUser(
@@ -226,9 +307,7 @@ export async function registerUser(
   if (role === 'admin') {
     const adminExists = users.some((u) => u.role === 'admin');
     const secretMatches = adminSecret && adminSecret.trim() === ADMIN_REGISTRATION_SECRET;
-    // If no admins exist yet or secret matches, grant admin; otherwise require secret
     if (adminExists && !secretMatches) {
-      // Default to customer or prompt for secret
       return { error: 'Valid Admin Secret Key required to register an admin account.' };
     }
     assignedRole = 'admin';
@@ -246,7 +325,7 @@ export async function registerUser(
   };
 
   users.push(newUser);
-  writeUsers(users);
+  await writeUsers(users, newUser);
 
   const session: AuthSession = {
     userId: newUser.id,
@@ -263,7 +342,7 @@ export async function registerUser(
     secure: process.env.NODE_ENV === 'production',
     sameSite: 'lax',
     path: '/',
-    maxAge: 7 * 24 * 60 * 60,
+    maxAge: Math.floor(SESSION_DURATION_MS / 1000),
   });
 
   return {
@@ -286,4 +365,9 @@ export async function logoutUser(): Promise<void> {
     revokedSessions.add(tokenHash);
   }
   cookieStore.delete(COOKIE_NAME);
+}
+
+export function revokeAllUserSessions(): void {
+  // Clear revoked in-memory on restart or manual flush
+  revokedSessions.clear();
 }
