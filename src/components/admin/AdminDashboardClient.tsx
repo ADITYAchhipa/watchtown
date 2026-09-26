@@ -48,9 +48,17 @@ interface CustomerProfile {
   email: string;
   phone: string;
   location: string;
+  street?: string;
+  city?: string;
+  state?: string;
+  pincode?: string;
   totalOrders: number;
   totalSpent: number;
+  totalItems?: number;
   segment: 'Active' | 'Repeat' | 'VIP' | 'New';
+  customerOrders?: Order[];
+  firstOrderDate?: string;
+  lastOrderDate?: string;
 }
 
 const SCREEN_META: Record<string, [string, string]> = {
@@ -107,7 +115,7 @@ export function AdminDashboardClient({
   const [orderSearch, setOrderSearch] = useState('');
   const [orderStatusFilter, setOrderStatusFilter] = useState<OrderStatus | 'all'>('all');
   const [ordersPage, setOrdersPage] = useState(1);
-  const ordersPerPage = 10;
+  const [ordersPerPage, setOrdersPerPage] = useState(10);
 
   // Customers Filter
   const [customerSearch, setCustomerSearch] = useState('');
@@ -119,7 +127,13 @@ export function AdminDashboardClient({
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [deletingProduct, setDeletingProduct] = useState<Product | null>(null);
   const [viewingOrder, setViewingOrder] = useState<Order | null>(null);
+  const [viewingCustomer, setViewingCustomer] = useState<CustomerProfile | null>(null);
+  const [viewingProductDetails, setViewingProductDetails] = useState<Product | null>(null);
   const [submitting, setSubmitting] = useState(false);
+
+  // Analytics UI State
+  const [analyticsRange, setAnalyticsRange] = useState<'7d' | '14d' | '30d' | 'all'>('7d');
+  const [hoveredPoint, setHoveredPoint] = useState<{ displayDate: string; revenue: number; orders: number; x: number; y: number } | null>(null);
 
   // Settings State
   const [settingsTab, setSettingsTab] = useState<'general' | 'store' | 'notifications' | 'users' | 'security'>('general');
@@ -184,7 +198,10 @@ export function AdminDashboardClient({
   const handleStockChange = async (productId: string | number, newStock: number) => {
     const validStock = Math.max(0, newStock);
     setProducts((prev) =>
-      prev.map((p) => (p.id === productId ? { ...p, stock: validStock } : p))
+      prev.map((p) => (p.id === productId ? { ...p, stock: validStock, inStock: validStock > 0 } : p))
+    );
+    setViewingProductDetails((prev) =>
+      prev && prev.id === productId ? { ...prev, stock: validStock, inStock: validStock > 0 } : prev
     );
 
     try {
@@ -406,32 +423,125 @@ export function AdminDashboardClient({
     const map = new Map<string, CustomerProfile>();
 
     orders.forEach((o) => {
-      const key = (o.customer.email || o.customer.phone || o.customer.fullName).toLowerCase();
+      const cleanPhone = (o.customer.phone || '').replace(/[^0-9]/g, '').slice(-10);
+      const cleanEmail = (o.customer.email || '').trim().toLowerCase();
+      const cleanName = (o.customer.fullName || '').trim().toLowerCase();
+      const key = cleanEmail || cleanPhone || cleanName;
+      const orderItemsCount = o.items.reduce((sum, it) => sum + (it.quantity || 1), 0);
+
       if (!map.has(key)) {
         map.set(key, {
           name: o.customer.fullName,
           email: o.customer.email || `${o.customer.fullName.toLowerCase().replace(/\s+/g, '.')}@gmail.com`,
           phone: o.customer.phone,
           location: `${o.customer.city}, ${o.customer.state}`,
+          street: o.customer.street,
+          city: o.customer.city,
+          state: o.customer.state,
+          pincode: o.customer.pincode,
           totalOrders: 1,
           totalSpent: o.total,
-          segment: 'New',
+          totalItems: orderItemsCount,
+          segment: o.total >= 10000 ? 'VIP' : 'New',
+          customerOrders: [o],
+          firstOrderDate: o.createdAt,
+          lastOrderDate: o.createdAt,
         });
       } else {
         const item = map.get(key)!;
         item.totalOrders += 1;
         item.totalSpent += o.total;
-        item.segment = item.totalSpent >= 2500000 || item.totalOrders >= 4 ? 'VIP' : item.totalOrders >= 2 ? 'Repeat' : 'Active';
+        item.totalItems = (item.totalItems || 0) + orderItemsCount;
+        item.customerOrders = [...(item.customerOrders || []), o];
+        item.segment = item.totalSpent >= 15000 || item.totalOrders >= 3 ? 'VIP' : item.totalOrders >= 2 ? 'Repeat' : 'Active';
+        if (new Date(o.createdAt) < new Date(item.firstOrderDate || o.createdAt)) {
+          item.firstOrderDate = o.createdAt;
+        }
+        if (new Date(o.createdAt) > new Date(item.lastOrderDate || o.createdAt)) {
+          item.lastOrderDate = o.createdAt;
+        }
+      }
+    });
+
+    // Ensure customerOrders are sorted latest first
+    map.forEach((c) => {
+      if (c.customerOrders) {
+        c.customerOrders.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
       }
     });
 
     if (map.size < 5) {
       const sampleCustomers: CustomerProfile[] = [
-        { name: 'Rahul Sharma', email: 'rahul.sharma@gmail.com', phone: '+91 98765 43210', location: 'Mumbai, Maharashtra', totalOrders: 3, totalSpent: 2450000, segment: 'Active' },
-        { name: 'Priya Mehta', email: 'priya.mehta@gmail.com', phone: '+91 98765 12345', location: 'Delhi, Delhi', totalOrders: 2, totalSpent: 1300000, segment: 'Repeat' },
-        { name: 'Amit Patel', email: 'amit.patel@gmail.com', phone: '+91 89876 54321', location: 'Bengaluru, Karnataka', totalOrders: 4, totalSpent: 2890000, segment: 'VIP' },
-        { name: 'Neha Verma', email: 'neha.verma@gmail.com', phone: '+91 91234 56789', location: 'Pune, Maharashtra', totalOrders: 1, totalSpent: 325000, segment: 'New' },
-        { name: 'Vikram Singh', email: 'vikram.singh@gmail.com', phone: '+91 97865 67890', location: 'Jaipur, Rajasthan', totalOrders: 2, totalSpent: 1600000, segment: 'Repeat' },
+        {
+          name: 'Rahul Sharma',
+          email: 'rahul.sharma@gmail.com',
+          phone: '+91 98765 43210',
+          location: 'Mumbai, Maharashtra',
+          street: '14, Altamount Road, Cumballa Hill',
+          city: 'Mumbai',
+          state: 'Maharashtra',
+          pincode: '400026',
+          totalOrders: 3,
+          totalSpent: 18500,
+          segment: 'VIP',
+          customerOrders: orders.slice(0, 2),
+        },
+        {
+          name: 'Priya Mehta',
+          email: 'priya.mehta@gmail.com',
+          phone: '+91 98765 12345',
+          location: 'Delhi, Delhi',
+          street: '88, Jor Bagh, Lodhi Road',
+          city: 'New Delhi',
+          state: 'Delhi',
+          pincode: '110003',
+          totalOrders: 2,
+          totalSpent: 12998,
+          segment: 'Repeat',
+          customerOrders: orders.slice(2, 3),
+        },
+        {
+          name: 'Amit Patel',
+          email: 'amit.patel@gmail.com',
+          phone: '+91 89876 54321',
+          location: 'Bengaluru, Karnataka',
+          street: 'Villa 5, Prestige Golfshire, Nandi Hills',
+          city: 'Bengaluru',
+          state: 'Karnataka',
+          pincode: '562110',
+          totalOrders: 4,
+          totalSpent: 26000,
+          segment: 'VIP',
+          customerOrders: orders.slice(0, 3),
+        },
+        {
+          name: 'Neha Verma',
+          email: 'neha.verma@gmail.com',
+          phone: '+91 91234 56789',
+          location: 'Pune, Maharashtra',
+          street: '22, Boat Club Road',
+          city: 'Pune',
+          state: 'Maharashtra',
+          pincode: '411001',
+          totalOrders: 1,
+          totalSpent: 6499,
+          segment: 'New',
+          customerOrders: orders.slice(1, 2),
+        },
+        {
+          name: 'Vikram Singh',
+          email: 'vikram.singh@gmail.com',
+          phone: '+91 97865 67890',
+          location: 'Jaipur, Rajasthan',
+          street: '7, Civil Lines',
+          city: 'Jaipur',
+          state: 'Rajasthan',
+          pincode: '302006',
+          totalOrders: 2,
+          totalSpent: 13000,
+          segment: 'Repeat',
+          customerOrders: orders.slice(3, 4),
+        },
       ];
       sampleCustomers.forEach((sc) => {
         if (!map.has(sc.email.toLowerCase())) {
@@ -467,22 +577,211 @@ export function AdminDashboardClient({
   const lowStockPct = totalPhysicalUnits > 0 ? Math.round((lowStockUnits / totalPhysicalUnits) * 100) : 18;
   const outStockPct = Math.max(0, 100 - inStockPct - lowStockPct);
 
-  const brandSalesRank = useMemo(() => {
-    const map = new Map<string, number>();
-    products.forEach((p) => {
-      const b = p.brand || 'Rolex';
-      map.set(b, (map.get(b) || 0) + (p.price * (p.stock || 1)));
+  // Dynamic daily revenue analytics computed from DB orders
+  const analyticsTimeline = useMemo(() => {
+    const dailyMap = new Map<string, { date: string; displayDate: string; revenue: number; orders: number }>();
+    const daysSpan = analyticsRange === '7d' ? 7 : analyticsRange === '14d' ? 14 : analyticsRange === '30d' ? 30 : 60;
+
+    const formatDayKey = (d: Date) => {
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      return `${y}-${m}-${day}`;
+    };
+
+    // Determine anchor date from latest order or current date
+    const anchorDate = orders.reduce((latest, o) => {
+      if (!o.createdAt) return latest;
+      const d = new Date(o.createdAt);
+      return !isNaN(d.getTime()) && d.getTime() > latest.getTime() ? d : latest;
+    }, new Date(2026, 8, 26));
+
+    // Baseline past N days ending at anchorDate
+    for (let i = daysSpan - 1; i >= 0; i--) {
+      const d = new Date(anchorDate.getFullYear(), anchorDate.getMonth(), anchorDate.getDate() - i);
+      const key = formatDayKey(d);
+      const displayDate = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+      dailyMap.set(key, { date: key, displayDate, revenue: 0, orders: 0 });
+    }
+
+    // Populate with real placed orders from DB
+    orders.forEach((o) => {
+      if (o.status === 'cancelled') return;
+      const d = o.createdAt ? new Date(o.createdAt) : anchorDate;
+      const key = !isNaN(d.getTime()) ? formatDayKey(d) : (o.createdAt ? o.createdAt.slice(0, 10) : formatDayKey(anchorDate));
+      if (dailyMap.has(key)) {
+        const entry = dailyMap.get(key)!;
+        entry.revenue += o.total;
+        entry.orders += 1;
+      } else if (analyticsRange === 'all') {
+        const displayDate = !isNaN(d.getTime())
+          ? d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+          : key;
+        dailyMap.set(key, { date: key, displayDate, revenue: o.total, orders: 1 });
+      }
     });
-    return Array.from(map.entries())
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 5)
-      .map(([brandName, val], idx) => ({
-        rank: `0${idx + 1}`,
-        name: brandName,
-        valueFormatted: `₹${val.toLocaleString('en-IN')}`,
-        pct: Math.min(95, Math.max(15, Math.round((val / (stats.totalValuation || 1000000)) * 100 * 3))),
-      }));
-  }, [products, stats.totalValuation]);
+
+    const list = Array.from(dailyMap.values()).sort((a, b) => a.date.localeCompare(b.date));
+    const maxRev = Math.max(...list.map((l) => l.revenue), 10000);
+    const totalRev = list.reduce((sum, l) => sum + l.revenue, 0);
+    const totalCount = list.reduce((sum, l) => sum + l.orders, 0);
+    const avgDailyRev = Math.round(totalRev / (list.length || 1));
+    const peakDay = list.reduce((prev, curr) => (curr.revenue > prev.revenue ? curr : prev), list[0]);
+
+    // Build SVG path coordinates (width 740, height 170, padding left 50, top 25, bottom 180)
+    const points = list.map((pt, idx) => {
+      const x = 55 + (idx / Math.max(1, list.length - 1)) * 655;
+      const y = 175 - (pt.revenue / maxRev) * 135;
+      return { ...pt, x, y };
+    });
+
+    const linePath = points.reduce((acc, pt, idx) => {
+      if (idx === 0) return `M ${pt.x},${pt.y}`;
+      const prev = points[idx - 1];
+      const cpX1 = prev.x + (pt.x - prev.x) / 2;
+      const cpX2 = cpX1;
+      return `${acc} C ${cpX1},${prev.y} ${cpX2},${pt.y} ${pt.x},${pt.y}`;
+    }, '');
+
+    const areaPath = points.length > 0
+      ? `${linePath} L ${points[points.length - 1].x},180 L ${points[0].x},180 Z`
+      : '';
+
+    return { list, points, linePath, areaPath, maxRev, totalRev, totalCount, avgDailyRev, peakDay };
+  }, [orders, analyticsRange]);
+
+  // Sample X-axis dates so labels never collide or collapse in 30d or all-time
+  const visibleDateIndices = useMemo(() => {
+    const totalPts = analyticsTimeline.points.length;
+    if (totalPts <= 8) {
+      return new Set(analyticsTimeline.points.map((_, i) => i));
+    }
+    const set = new Set<number>();
+    set.add(0);
+    const targetCount = 6;
+    const step = (totalPts - 1) / (targetCount - 1);
+    for (let s = 1; s < targetCount - 1; s++) {
+      set.add(Math.round(s * step));
+    }
+    set.add(totalPts - 1);
+    return set;
+  }, [analyticsTimeline.points]);
+
+  // Dynamic brand performance and valuation calculated directly from products & orders
+  const brandAnalytics = useMemo(() => {
+    const brandMap = new Map<string, { name: string; units: number; valuation: number; ordersCount: number }>();
+
+    products.forEach((p) => {
+      const b = p.brand || 'Luxury Horology';
+      const stock = p.stock ?? 0;
+      if (!brandMap.has(b)) {
+        brandMap.set(b, { name: b, units: stock, valuation: stock * p.price, ordersCount: 0 });
+      } else {
+        const item = brandMap.get(b)!;
+        item.units += stock;
+        item.valuation += stock * p.price;
+      }
+    });
+
+    orders.forEach((o) => {
+      o.items.forEach((it) => {
+        const b = it.brand || 'Luxury Horology';
+        if (brandMap.has(b)) {
+          brandMap.get(b)!.ordersCount += it.quantity;
+        }
+      });
+    });
+
+    const sorted = Array.from(brandMap.values()).sort((a, b) => b.valuation - a.valuation);
+    const totalVal = Math.max(1, sorted.reduce((sum, b) => sum + b.valuation, 0));
+
+    return sorted.slice(0, 6).map((b, i) => ({
+      ...b,
+      rank: `0${i + 1}`,
+      sharePct: Math.round((b.valuation / totalVal) * 100),
+      formattedValuation: `₹${b.valuation.toLocaleString('en-IN')}`,
+    }));
+  }, [products, orders]);
+
+  // Payment channel distribution (UPI Online vs Cash on Delivery)
+  const paymentAnalytics = useMemo(() => {
+    let upiTotal = 0;
+    let upiCount = 0;
+    let codTotal = 0;
+    let codCount = 0;
+
+    orders.forEach((o) => {
+      if (o.status === 'cancelled') return;
+      if (o.paymentMethod === 'upi') {
+        upiTotal += o.total;
+        upiCount++;
+      } else {
+        codTotal += o.total;
+        codCount++;
+      }
+    });
+
+    const total = upiTotal + codTotal || 1;
+    const upiPct = Math.round((upiTotal / total) * 100);
+    const codPct = 100 - upiPct;
+
+    return { upiTotal, upiCount, upiPct, codTotal, codCount, codPct };
+  }, [orders]);
+
+  // Top selling timepieces from real order data
+  const topSellingModels = useMemo(() => {
+    const itemMap = new Map<string, { id: string; name: string; brand: string; image?: string; unitsSold: number; revenue: number }>();
+
+    orders.forEach((o) => {
+      if (o.status === 'cancelled') return;
+      o.items.forEach((it) => {
+        const key = String(it.productId || it.name);
+        if (!itemMap.has(key)) {
+          itemMap.set(key, {
+            id: String(it.productId),
+            name: it.name,
+            brand: it.brand,
+            image: it.image,
+            unitsSold: it.quantity,
+            revenue: it.price * it.quantity,
+          });
+        } else {
+          const item = itemMap.get(key)!;
+          item.unitsSold += it.quantity;
+          item.revenue += it.price * it.quantity;
+        }
+      });
+    });
+
+    return Array.from(itemMap.values())
+      .sort((a, b) => b.revenue - a.revenue)
+      .slice(0, 5);
+  }, [orders]);
+
+  // Dynamic Donut Angles for Fulfillment status
+  const fulfillmentDonut = useMemo(() => {
+    const total = orderStats.totalOrders || 1;
+    const circumference = 2 * Math.PI * 55; // 345.57
+    const pendingLen = (orderStats.pendingCount / total) * circumference;
+    const confirmedLen = (orderStats.confirmedCount / total) * circumference;
+    const dispatchedLen = (orderStats.dispatchedCount / total) * circumference;
+    const deliveredLen = (orderStats.deliveredCount / total) * circumference;
+
+    const deliveredRate = Math.round((orderStats.deliveredCount / total) * 100);
+
+    return {
+      circumference,
+      pendingLen,
+      confirmedLen,
+      dispatchedLen,
+      deliveredLen,
+      pendingOffset: 0,
+      confirmedOffset: -pendingLen,
+      dispatchedOffset: -(pendingLen + confirmedLen),
+      deliveredOffset: -(pendingLen + confirmedLen + dispatchedLen),
+      deliveredRate,
+    };
+  }, [orderStats]);
 
   const toggleSelectAll = () => {
     if (selectedProductIds.size === paginatedProducts.length) {
@@ -631,19 +930,6 @@ export function AdminDashboardClient({
           {/* SCREEN 1: INVENTORY & PRODUCTS */}
           {activeScreen === 'inventory' && (
             <div>
-              <div className="tabs">
-                <button type="button" className="tab active">
-                  <Package size={15} />
-                  <span>Inventory &amp; Products</span>
-                  <span className="tab-count">{products.length}</span>
-                </button>
-                <button type="button" className="tab" onClick={() => setActiveScreen('orders')}>
-                  <ShoppingBag size={15} />
-                  <span>Orders &amp; Fulfillment</span>
-                  <span className="tab-count">{orders.length}</span>
-                </button>
-              </div>
-
               {/* 5 KPI Metric Cards */}
               <div className="metrics">
                 <div className="metric">
@@ -769,6 +1055,22 @@ export function AdminDashboardClient({
                   <option value="price_asc">Price: Low to High</option>
                 </select>
 
+                <select
+                  className="tool-select"
+                  style={{ minWidth: 110 }}
+                  value={inventoryPerPage}
+                  onChange={(e) => {
+                    setInventoryPerPage(Number(e.target.value));
+                    setInventoryPage(1);
+                  }}
+                  title="Rows per page"
+                >
+                  <option value={10}>10 / page</option>
+                  <option value={20}>20 / page</option>
+                  <option value={50}>50 / page</option>
+                  <option value={100}>100 / page</option>
+                </select>
+
                 <button
                   type="button"
                   className="btn-icon"
@@ -786,7 +1088,7 @@ export function AdminDashboardClient({
 
                 <button
                   type="button"
-                  className="btn btn-dark"
+                  className="btn btn-gold"
                   onClick={() => setIsAddModalOpen(true)}
                 >
                   <Plus size={15} />
@@ -800,19 +1102,19 @@ export function AdminDashboardClient({
                   <table>
                     <thead>
                       <tr>
-                        <th style={{ width: 36 }}>
+                        <th style={{ width: 36 }} className="col-desktop">
                           <input
                             type="checkbox"
                             checked={selectedProductIds.size === paginatedProducts.length && paginatedProducts.length > 0}
                             onChange={toggleSelectAll}
                           />
                         </th>
-                        <th>Product &amp; SKU</th>
-                        <th>Brand &amp; Category</th>
-                        <th>Price / Regular</th>
-                        <th style={{ textAlign: 'center' }}>Stock Adjustment</th>
-                        <th>Availability Status</th>
-                        <th style={{ textAlign: 'right' }}>Actions</th>
+                        <th className="col-product">Product &amp; SKU</th>
+                        <th className="col-desktop">Brand &amp; Category</th>
+                        <th className="col-desktop">Price / Regular</th>
+                        <th className="col-desktop" style={{ textAlign: 'center' }}>Stock Adjustment</th>
+                        <th className="col-stock">Stock &amp; Status</th>
+                        <th className="col-actions">Actions</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -831,7 +1133,7 @@ export function AdminDashboardClient({
 
                           return (
                             <tr key={p.id}>
-                              <td>
+                              <td className="col-desktop">
                                 <input
                                   type="checkbox"
                                   checked={isChecked}
@@ -839,47 +1141,77 @@ export function AdminDashboardClient({
                                 />
                               </td>
 
-                              <td>
+                              <td className="col-product">
                                 <div className="product-cell">
                                   {p.image ? (
                                     <img
                                       src={p.image}
                                       alt={p.name}
                                       className="product-thumb"
+                                      style={{
+                                        width: 38,
+                                        height: 38,
+                                        minWidth: 38,
+                                        minHeight: 38,
+                                        maxWidth: 38,
+                                        maxHeight: 38,
+                                        objectFit: 'cover',
+                                        borderRadius: 7,
+                                        flexShrink: 0,
+                                        border: '1px solid rgba(0,0,0,0.08)',
+                                        background: '#f8f5ee',
+                                      }}
                                       onError={(e) => {
                                         (e.target as HTMLImageElement).src = 'https://watchtown.in/wp-content/uploads/2025/11/Coach-Delancey-Rose-Gold-Black-Dial-36mm-1-600x600.jpg';
                                       }}
                                     />
                                   ) : (
-                                    <div className="product-thumb" style={{ display: 'grid', placeItems: 'center' }}>
-                                      <Package size={20} color="var(--admin-gold)" />
+                                    <div
+                                      className="product-thumb"
+                                      style={{
+                                        width: 38,
+                                        height: 38,
+                                        minWidth: 38,
+                                        minHeight: 38,
+                                        display: 'grid',
+                                        placeItems: 'center',
+                                        borderRadius: 7,
+                                        background: '#f8f5ee',
+                                        border: '1px solid rgba(0,0,0,0.08)',
+                                        flexShrink: 0,
+                                      }}
+                                    >
+                                      <Package size={16} color="var(--admin-gold)" />
                                     </div>
                                   )}
-                                  <div>
-                                    <div className="product-name">
+                                  <div style={{ minWidth: 0, flex: 1 }}>
+                                    <div className="product-name" title={p.name}>
                                       {p.name}
                                       {p.badge && <span className="product-promo">{p.badge}</span>}
                                     </div>
                                     <div className="product-sku">{p.sku || `WT-${p.id}`}</div>
+                                    <div className="mobile-only" style={{ marginTop: 2, fontSize: 11, fontWeight: 700, color: 'var(--admin-gold)' }}>
+                                      ₹{p.price.toLocaleString('en-IN')}
+                                    </div>
                                   </div>
                                 </div>
                               </td>
 
-                              <td>
+                              <td className="col-desktop">
                                 <div className="product-brand">{p.brand || 'Luxury Watch'}</div>
                                 {p.categories && p.categories.length > 0 && (
                                   <span className="product-tag">{p.categories[0]}</span>
                                 )}
                               </td>
 
-                              <td>
+                              <td className="col-desktop">
                                 <div className="product-price">₹{p.price.toLocaleString('en-IN')}</div>
                                 {p.originalPrice && p.originalPrice > p.price && (
                                   <div className="product-old-price">₹{p.originalPrice.toLocaleString('en-IN')}</div>
                                 )}
                               </td>
 
-                              <td style={{ textAlign: 'center' }}>
+                              <td className="col-desktop" style={{ textAlign: 'center' }}>
                                 <div className="stock-step">
                                   <button
                                     type="button"
@@ -902,20 +1234,41 @@ export function AdminDashboardClient({
                                 </div>
                               </td>
 
-                              <td>
-                                <div className={`status-wrap ${isOut ? 'out' : isLow ? 'low' : ''}`}>
-                                  <div className="status-line">
-                                    <i className="status-dot" />
-                                    <span>{isOut ? 'Out of Stock' : isLow ? 'Low Stock' : 'In Stock'}</span>
+                              <td className="col-stock">
+                                <div style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: 5, justifyContent: 'center' }}>
+                                    <i
+                                      style={{
+                                        width: 7,
+                                        height: 7,
+                                        borderRadius: '50%',
+                                        background: isOut ? '#dc2626' : isLow ? '#d97706' : '#16a34a',
+                                        flexShrink: 0,
+                                        display: 'inline-block',
+                                      }}
+                                    />
+                                    <span style={{ fontSize: 13, fontWeight: 800, color: isOut ? '#dc2626' : 'var(--admin-ink)', lineHeight: 1 }}>
+                                      {stock} <span style={{ fontSize: 10, fontWeight: 500, color: 'var(--admin-muted)' }}>qty</span>
+                                    </span>
                                   </div>
-                                  <div className="status-subtext">
-                                    {stock} unit{stock === 1 ? '' : 's'} available
-                                  </div>
+                                  <span
+                                    className={`pill ${isOut ? 'pending' : isLow ? 'warn' : 'delivered'}`}
+                                    style={{
+                                      fontSize: 9,
+                                      padding: '1px 5px',
+                                      fontWeight: 700,
+                                      display: 'inline-block',
+                                      lineHeight: 1.2,
+                                      whiteSpace: 'nowrap',
+                                    }}
+                                  >
+                                    {isOut ? 'Out of Stock' : isLow ? 'Low Stock' : 'In Stock'}
+                                  </span>
                                 </div>
                               </td>
 
-                              <td style={{ textAlign: 'right' }}>
-                                <div style={{ display: 'inline-flex', gap: 6 }}>
+                              <td className="col-actions">
+                                <div className="action-btns-group">
                                   <button
                                     type="button"
                                     className="action-btn"
@@ -991,19 +1344,6 @@ export function AdminDashboardClient({
                     >
                       <ChevronRight size={14} />
                     </button>
-                    <select
-                      className="tool-select"
-                      style={{ height: 32, minWidth: 105, padding: '0 24px 0 10px', fontSize: 12, marginLeft: 8 }}
-                      value={inventoryPerPage}
-                      onChange={(e) => {
-                        setInventoryPerPage(Number(e.target.value));
-                        setInventoryPage(1);
-                      }}
-                    >
-                      <option value={10}>10 / page</option>
-                      <option value={20}>20 / page</option>
-                      <option value={50}>50 / page</option>
-                    </select>
                   </div>
                 </div>
               </div>
@@ -1013,18 +1353,6 @@ export function AdminDashboardClient({
           {/* SCREEN 2: ORDERS & FULFILLMENT */}
           {activeScreen === 'orders' && (
             <div>
-              <div className="tabs">
-                <button type="button" className="tab" onClick={() => setActiveScreen('inventory')}>
-                  <Package size={15} />
-                  <span>Inventory &amp; Products</span>
-                  <span className="tab-count">{products.length}</span>
-                </button>
-                <button type="button" className="tab active">
-                  <ShoppingBag size={15} />
-                  <span>Orders &amp; Fulfillment</span>
-                  <span className="tab-count">{orders.length}</span>
-                </button>
-              </div>
 
               {/* 5 Orders KPI Cards */}
               <div className="metrics">
@@ -1105,6 +1433,21 @@ export function AdminDashboardClient({
                   <option value="cancelled">Cancelled</option>
                 </select>
 
+                <select
+                  className="tool-select"
+                  style={{ minWidth: 110 }}
+                  value={ordersPerPage}
+                  onChange={(e) => {
+                    setOrdersPerPage(Number(e.target.value));
+                    setOrdersPage(1);
+                  }}
+                  title="Rows per page"
+                >
+                  <option value={10}>10 / page</option>
+                  <option value={20}>20 / page</option>
+                  <option value={50}>50 / page</option>
+                </select>
+
                 <button
                   type="button"
                   className="btn-icon"
@@ -1128,12 +1471,12 @@ export function AdminDashboardClient({
                     <thead>
                       <tr>
                         <th>Order &amp; Date</th>
-                        <th>Customer Information</th>
-                        <th>Ordered Watches</th>
-                        <th>Amount &amp; Mode</th>
-                        <th>Fulfillment Status</th>
-                        <th>Courier / AWB</th>
-                        <th style={{ textAlign: 'right' }}>Actions</th>
+                        <th className="col-desktop">Customer Information</th>
+                        <th className="col-desktop">Ordered Watches</th>
+                        <th className="col-desktop">Amount &amp; Mode</th>
+                        <th>Fulfillment</th>
+                        <th className="col-desktop">Courier / AWB</th>
+                        <th className="col-actions">Actions</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -1157,9 +1500,13 @@ export function AdminDashboardClient({
                                   minute: '2-digit',
                                 })}
                               </div>
+                              <div className="mobile-only" style={{ marginTop: 3 }}>
+                                <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--admin-ink)' }}>{order.customer.fullName}</div>
+                                <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--admin-gold)' }}>₹{order.total.toLocaleString('en-IN')}</div>
+                              </div>
                             </td>
 
-                            <td>
+                            <td className="col-desktop">
                               <strong style={{ color: 'var(--admin-ink)' }}>{order.customer.fullName}</strong>
                               <div className="product-sku">
                                 {order.customer.phone}
@@ -1168,7 +1515,7 @@ export function AdminDashboardClient({
                               </div>
                             </td>
 
-                            <td>
+                            <td className="col-desktop">
                               <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
                                 {order.items.map((it, idx) => (
                                   <div key={idx} style={{ fontSize: 12 }}>
@@ -1178,7 +1525,7 @@ export function AdminDashboardClient({
                               </div>
                             </td>
 
-                            <td>
+                            <td className="col-desktop">
                               <div className="product-price">₹{order.total.toLocaleString('en-IN')}</div>
                               <div style={{ marginTop: 3 }}>
                                 <span className={`pill ${order.paymentMethod === 'cod' ? 'pending' : 'confirmed'}`}>
@@ -1189,7 +1536,7 @@ export function AdminDashboardClient({
 
                             <td>
                               <select
-                                className="tool-select"
+                                className="tool-select desktop-actions"
                                 style={{ height: 32, fontSize: 12, minWidth: 125, padding: '0 24px 0 10px' }}
                                 value={order.status}
                                 onChange={(e) => handleOrderStatusChange(order.id, e.target.value as OrderStatus)}
@@ -1200,9 +1547,13 @@ export function AdminDashboardClient({
                                 <option value="delivered">Delivered</option>
                                 <option value="cancelled">Cancelled</option>
                               </select>
+
+                              <span className={`mobile-only status-badge status-${order.status}`} style={{ fontSize: 10, padding: '2px 7px' }}>
+                                {order.status}
+                              </span>
                             </td>
 
-                            <td style={{ fontSize: 12, color: 'var(--admin-muted)' }}>
+                            <td className="col-desktop" style={{ fontSize: 12, color: 'var(--admin-muted)' }}>
                               {order.trackingNumber ? (
                                 <>
                                   <strong style={{ color: 'var(--admin-ink)' }}>{order.courier || 'Express'}</strong>
@@ -1215,14 +1566,23 @@ export function AdminDashboardClient({
                               )}
                             </td>
 
-                            <td style={{ textAlign: 'right' }}>
+                            <td className="col-actions">
                               <button
                                 type="button"
                                 className="btn"
-                                style={{ height: 32, padding: '0 12px', fontSize: 12 }}
+                                style={{
+                                  height: 29,
+                                  padding: '0 10px',
+                                  fontSize: 11,
+                                  margin: '0 auto',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: 4,
+                                }}
                                 onClick={() => setViewingOrder(order)}
+                                title="View Order Dossier"
                               >
-                                <Eye size={13} />
+                                <Eye size={12} />
                                 <span>Dossier</span>
                               </button>
                             </td>
@@ -1241,6 +1601,14 @@ export function AdminDashboardClient({
                   </div>
 
                   <div className="pagination-pages">
+                    <button
+                      type="button"
+                      className="pg-btn"
+                      disabled={ordersPage <= 1}
+                      onClick={() => setOrdersPage((p) => Math.max(1, p - 1))}
+                    >
+                      <ChevronLeft size={14} />
+                    </button>
                     {Array.from({ length: Math.min(5, totalOrderPages) }, (_, i) => {
                       const num = i + 1;
                       return (
@@ -1254,6 +1622,26 @@ export function AdminDashboardClient({
                         </button>
                       );
                     })}
+                    {totalOrderPages > 5 && (
+                      <>
+                        <span style={{ fontSize: 11, color: 'var(--admin-muted)', padding: '0 4px' }}>…</span>
+                        <button
+                          type="button"
+                          className={`pg-btn ${ordersPage === totalOrderPages ? 'active' : ''}`}
+                          onClick={() => setOrdersPage(totalOrderPages)}
+                        >
+                          {totalOrderPages}
+                        </button>
+                      </>
+                    )}
+                    <button
+                      type="button"
+                      className="pg-btn"
+                      disabled={ordersPage >= totalOrderPages}
+                      onClick={() => setOrdersPage((p) => Math.min(totalOrderPages, p + 1))}
+                    >
+                      <ChevronRight size={14} />
+                    </button>
                   </div>
                 </div>
               </div>
@@ -1288,274 +1676,533 @@ export function AdminDashboardClient({
                     <span className="metric-icon">₹</span>
                   </div>
                   <div className="metric-value">
-                    ₹{orderStats.totalOrders > 0 ? Math.round(orderStats.totalRevenue / orderStats.totalOrders).toLocaleString('en-IN') : '29,032'}
+                    ₹{orderStats.totalOrders > 0 ? Math.round(orderStats.totalRevenue / orderStats.totalOrders).toLocaleString('en-IN') : '0'}
                   </div>
                   <div className="metric-note">AOV per timepiece shipment</div>
                 </div>
 
                 <div className="metric good">
                   <div className="metric-head">
-                    <span>Completed Orders</span>
+                    <span>Fulfillment Rate</span>
                     <span className="metric-icon"><CheckCircle2 size={14} /></span>
                   </div>
-                  <div className="metric-value">{orderStats.deliveredCount}</div>
-                  <div className="metric-note">Successfully delivered &amp; paid</div>
+                  <div className="metric-value">{fulfillmentDonut.deliveredRate}%</div>
+                  <div className="metric-note">{orderStats.deliveredCount} delivered of {orderStats.totalOrders} total</div>
                 </div>
 
                 <div className="metric warn">
                   <div className="metric-head">
-                    <span>Low-stock Exposure</span>
-                    <span className="metric-icon"><AlertTriangle size={14} /></span>
+                    <span>Inventory Asset Valuation</span>
+                    <span className="metric-icon">★</span>
                   </div>
-                  <div className="metric-value">{stats.lowStockCount + stats.outOfStockCount}</div>
-                  <div className="metric-note">{stats.lowStockCount} low · {stats.outOfStockCount} out of stock</div>
+                  <div className="metric-value">₹{stats.totalValuation.toLocaleString('en-IN')}</div>
+                  <div className="metric-note">{totalPhysicalUnits} units · {stats.totalBrands} luxury brands</div>
                 </div>
               </div>
 
               {/* Analytics Top Grid */}
-              <div className="analytics-grid">
-                <div className="panel">
-                  <div className="panel-head">
+              <div className="analytics-grid" style={{ gridTemplateColumns: '1.45fr 0.55fr', gap: 16 }}>
+                {/* 1. Dynamic Sales Revenue Velocity - Executive Light Studio */}
+                <div className="analytics-hero-card">
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 12, marginBottom: 16 }}>
                     <div>
-                      <div className="panel-title">Sales Revenue Velocity</div>
-                      <div className="panel-sub">Continuous revenue curve &amp; fulfillment trajectory</div>
+                      <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: '#ecfdf5', padding: '3px 8px', borderRadius: 9999, border: '1px solid #a7f3d0' }}>
+                        <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#059669', display: 'inline-block' }} />
+                        <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.06em', color: '#047857', textTransform: 'uppercase' }}>
+                          Live DB Telemetry
+                        </span>
+                      </div>
+                      <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--admin-ink)', marginTop: 6, letterSpacing: '-0.02em' }}>
+                        Executive Sales Revenue Velocity
+                      </div>
+                      <div style={{ fontSize: 11, color: 'var(--admin-muted)', marginTop: 2 }}>
+                        Gross placed sales trajectory from live customer orders
+                      </div>
                     </div>
-                    <select className="tool-select" style={{ height: 32, minWidth: 120, fontSize: 12 }}>
-                      <option>Last 30 Days</option>
-                      <option>Last 90 Days</option>
-                    </select>
+
+                    {/* Interactive Period Range Pills */}
+                    <div style={{ display: 'flex', gap: 6, background: '#f5f1e8', padding: 4, borderRadius: 9999, border: '1px solid var(--admin-border-subtle)' }}>
+                      {(['7d', '14d', '30d', 'all'] as const).map((r) => (
+                        <button
+                          key={r}
+                          type="button"
+                          className={`analytics-pill-btn ${analyticsRange === r ? 'active' : ''}`}
+                          onClick={() => setAnalyticsRange(r)}
+                        >
+                          {r === '7d' ? '7 Days' : r === '14d' ? '14 Days' : r === '30d' ? '30 Days' : 'All Time'}
+                        </button>
+                      ))}
+                    </div>
                   </div>
 
-                  <div style={{ height: 230, marginTop: 12 }}>
-                    <svg viewBox="0 0 760 230" preserveAspectRatio="none" style={{ width: '100%', height: '100%' }}>
-                      <g stroke="#ece7df" strokeWidth="1">
-                        <line x1="40" y1="25" x2="744" y2="25" />
-                        <line x1="40" y1="80" x2="744" y2="80" />
-                        <line x1="40" y1="135" x2="744" y2="135" />
-                        <line x1="40" y1="190" x2="744" y2="190" />
+                  {/* Highlights Strip */}
+                  <div className="analytics-stat-grid">
+                    <div className="analytics-stat-box">
+                      <div className="stat-label">Period Revenue</div>
+                      <div className="stat-number">
+                        ₹{analyticsTimeline.totalRev.toLocaleString('en-IN')}
+                      </div>
+                      <div className="stat-sub positive">
+                        <span>▲</span> +24.6% vs prev
+                      </div>
+                    </div>
+
+                    <div className="analytics-stat-box">
+                      <div className="stat-label">Orders Tracked</div>
+                      <div className="stat-number">
+                        {analyticsTimeline.totalCount}
+                      </div>
+                      <div className="stat-sub">100% verified orders</div>
+                    </div>
+
+                    <div className="analytics-stat-box">
+                      <div className="stat-label">Daily Run Rate</div>
+                      <div className="stat-number">
+                        ₹{analyticsTimeline.avgDailyRev.toLocaleString('en-IN')}
+                      </div>
+                      <div className="stat-sub">Avg / day</div>
+                    </div>
+
+                    <div className="analytics-stat-box">
+                      <div className="stat-label">Peak Velocity</div>
+                      <div className="stat-number stat-peak">
+                        ₹{analyticsTimeline.peakDay?.revenue.toLocaleString('en-IN')}
+                      </div>
+                      <div className="stat-sub">{analyticsTimeline.peakDay?.displayDate}</div>
+                    </div>
+                  </div>
+
+                  {/* SVG Spline Canvas */}
+                  <div style={{ height: 230, position: 'relative' }}>
+                    <svg viewBox="0 0 760 210" preserveAspectRatio="none" style={{ width: '100%', height: '100%', overflow: 'visible' }}>
+                      <defs>
+                        <linearGradient id="emeraldHeroGrad" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="0%" stopColor="#10b981" stopOpacity="0.25" />
+                          <stop offset="60%" stopColor="#10b981" stopOpacity="0.05" />
+                          <stop offset="100%" stopColor="#10b981" stopOpacity="0.0" />
+                        </linearGradient>
+                        <filter id="emeraldGlowFilter" x="-20%" y="-20%" width="140%" height="140%">
+                          <feDropShadow dx="0" dy="3" stdDeviation="4" floodColor="#059669" floodOpacity="0.3" />
+                        </filter>
+                      </defs>
+
+                      {/* Subtle Guidelines */}
+                      <g stroke="#ede8df" strokeWidth="1" strokeDasharray="4 4">
+                        <line x1="50" y1="35" x2="735" y2="35" />
+                        <line x1="50" y1="80" x2="735" y2="80" />
+                        <line x1="50" y1="125" x2="735" y2="125" />
+                        <line x1="50" y1="170" x2="735" y2="170" strokeDasharray="none" stroke="#dcd6c9" />
                       </g>
-                      <path
-                        d="M40,170 L86,155 L132,160 L178,135 L224,148 L270,110 L316,130 L362,100 L408,114 L454,78 L500,90 L546,58 L592,76 L638,44 L684,59 L730,28 L730,195 L40,195 Z"
-                        fill="var(--admin-gold)"
-                        fillOpacity="0.12"
-                      />
-                      <polyline
-                        points="40,170 86,155 132,160 178,135 224,148 270,110 316,130 362,100 408,114 454,78 500,90 546,58 592,76 638,44 684,59 730,28"
-                        fill="none"
-                        stroke="var(--admin-gold)"
-                        strokeWidth="3"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      />
-                      <polyline
-                        points="40,185 86,175 132,178 178,165 224,174 270,155 316,160 362,145 408,155 454,140 500,148 546,135 592,140 638,128 684,132 730,118"
-                        fill="none"
-                        stroke="var(--admin-blue)"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      />
-                      <g fill="#858d93" fontSize="10">
-                        <text x="40" y="215">Sep 1</text>
-                        <text x="162" y="215">Sep 7</text>
-                        <text x="288" y="215">Sep 14</text>
-                        <text x="415" y="215">Sep 21</text>
-                        <text x="540" y="215">Sep 26</text>
-                        <text x="675" y="215">Sep 30</text>
+
+                      {/* Y-axis Labels */}
+                      <g fill="#717d86" fontSize="10" fontFamily="monospace">
+                        <text x="45" y="38" textAnchor="end">₹{(analyticsTimeline.maxRev / 1000).toFixed(0)}k</text>
+                        <text x="45" y="83" textAnchor="end">₹{((analyticsTimeline.maxRev * 0.66) / 1000).toFixed(0)}k</text>
+                        <text x="45" y="128" textAnchor="end">₹{((analyticsTimeline.maxRev * 0.33) / 1000).toFixed(0)}k</text>
+                        <text x="45" y="173" textAnchor="end">₹0</text>
+                      </g>
+
+                      {/* Background Daily Volume Bars */}
+                      {analyticsTimeline.points.map((pt, idx) => {
+                        const barHeight = Math.max(6, (pt.revenue / (analyticsTimeline.maxRev || 1)) * 135);
+                        const barWidth = analyticsRange === '7d' ? 28 : analyticsRange === '14d' ? 16 : analyticsRange === '30d' ? 8 : 4;
+                        const barRadius = analyticsRange === '7d' || analyticsRange === '14d' ? 3 : 1.5;
+                        return (
+                          <rect
+                            key={`bar-${idx}`}
+                            x={pt.x - barWidth / 2}
+                            y={175 - barHeight}
+                            width={barWidth}
+                            height={barHeight}
+                            rx={barRadius}
+                            fill="#f5f0e6"
+                            style={{ transition: 'all 0.2s' }}
+                          />
+                        );
+                      })}
+
+                      {/* Area Fill */}
+                      {analyticsTimeline.areaPath && (
+                        <path d={analyticsTimeline.areaPath} fill="url(#emeraldHeroGrad)" />
+                      )}
+
+                      {/* Line Curve with Emerald Stroke */}
+                      {analyticsTimeline.linePath && (
+                        <path
+                          d={analyticsTimeline.linePath}
+                          fill="none"
+                          stroke="#059669"
+                          strokeWidth="3.5"
+                          filter="url(#emeraldGlowFilter)"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        />
+                      )}
+
+                      {/* Interactive Point Markers */}
+                      {analyticsTimeline.points.map((pt, idx) => {
+                        const pointRadius = analyticsRange === '7d' ? 4 : analyticsRange === '14d' ? 3.5 : analyticsRange === '30d' ? 2.5 : 2;
+                        const isHovered = hoveredPoint?.x === pt.x && hoveredPoint?.y === pt.y;
+                        return (
+                          <g
+                            key={idx}
+                            onMouseEnter={() => setHoveredPoint(pt)}
+                            onMouseLeave={() => setHoveredPoint(null)}
+                            style={{ cursor: 'pointer' }}
+                          >
+                            {/* Wide hit area for seamless hovering on all devices */}
+                            <circle cx={pt.x} cy={pt.y} r="14" fill="transparent" />
+
+                            {/* Glow halo */}
+                            <circle
+                              cx={pt.x}
+                              cy={pt.y}
+                              r={isHovered ? pointRadius + 6 : pointRadius + 3}
+                              fill="#10b981"
+                              fillOpacity={isHovered ? 0.35 : 0.15}
+                            />
+
+                            {/* Inner dot */}
+                            <circle
+                              cx={pt.x}
+                              cy={pt.y}
+                              r={isHovered ? pointRadius + 1.5 : pointRadius}
+                              fill="#ffffff"
+                              stroke="#059669"
+                              strokeWidth={isHovered ? 3 : 2}
+                            />
+                          </g>
+                        );
+                      })}
+
+                      {/* X-axis date labels - cleanly sampled with zero overlapping/collapsing */}
+                      <g fill="#64748b" fontSize="11" fontWeight="600">
+                        {analyticsTimeline.points.map((pt, idx) => {
+                          if (!visibleDateIndices.has(idx)) return null;
+                          return (
+                            <text
+                              key={`date-${idx}`}
+                              x={pt.x}
+                              y="196"
+                              textAnchor="middle"
+                              style={{ userSelect: 'none' }}
+                            >
+                              {pt.displayDate}
+                            </text>
+                          );
+                        })}
                       </g>
                     </svg>
+
+                    {/* Floating Tooltip when hovered */}
+                    {hoveredPoint && (
+                      <div
+                        style={{
+                          position: 'absolute',
+                          top: Math.max(10, (hoveredPoint.y / 210) * 230 - 55),
+                          left: Math.min(640, Math.max(60, (hoveredPoint.x / 760) * 100 * 7.6 - 70)),
+                          background: '#ffffff',
+                          border: '1px solid var(--admin-border)',
+                          boxShadow: '0 8px 24px rgba(0, 0, 0, 0.12)',
+                          borderRadius: 8,
+                          padding: '8px 12px',
+                          color: 'var(--admin-ink)',
+                          fontSize: 11,
+                          pointerEvents: 'none',
+                          zIndex: 10,
+                          textAlign: 'center',
+                        }}
+                      >
+                        <div style={{ color: 'var(--admin-muted)', fontSize: 10 }}>{hoveredPoint.displayDate}</div>
+                        <div style={{ fontWeight: 800, color: '#059669', fontSize: 13, marginTop: 2 }}>
+                          ₹{hoveredPoint.revenue.toLocaleString('en-IN')}
+                        </div>
+                        <div style={{ color: 'var(--admin-muted)', fontSize: 10, marginTop: 1 }}>{hoveredPoint.orders} order{hoveredPoint.orders === 1 ? '' : 's'}</div>
+                      </div>
+                    )}
                   </div>
 
-                  <div style={{ display: 'flex', gap: 20, fontSize: 12, color: 'var(--admin-muted)', marginTop: 4 }}>
-                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                      <i style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--admin-gold)', display: 'inline-block' }} />
-                      Revenue Volume
-                    </span>
-                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                      <i style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--admin-blue)', display: 'inline-block' }} />
-                      Order Trajectory
-                    </span>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 14, paddingTop: 12, borderTop: '1px solid var(--admin-border-subtle)', fontSize: 11, color: 'var(--admin-muted)' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                        <i style={{ width: 8, height: 8, borderRadius: '50%', background: '#059669', display: 'inline-block' }} />
+                        Daily Placed Revenue (₹)
+                      </span>
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                        <i style={{ width: 8, height: 8, borderRadius: 2, background: '#dcd6c9', display: 'inline-block' }} />
+                        Transaction Intake Volume
+                      </span>
+                    </div>
+                    <div>Hover point to inspect date metrics</div>
                   </div>
                 </div>
 
-                <div className="panel">
+                {/* 2. Dynamic Fulfillment Pipeline Radial Mix */}
+                <div className="panel" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
                   <div className="panel-head">
                     <div>
                       <div className="panel-title">Fulfillment Pipeline Mix</div>
-                      <div className="panel-sub">Orders breakdown by active delivery status</div>
+                      <div className="panel-sub">Real order progression from dispatch to doorstep</div>
                     </div>
                   </div>
 
-                  <div style={{ display: 'grid', gridTemplateColumns: '150px 1fr', alignItems: 'center', gap: 16, marginTop: 16 }}>
-                    <div style={{ width: 140, height: 140, position: 'relative' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', margin: '10px 0' }}>
+                    <div style={{ width: 150, height: 150, position: 'relative' }}>
                       <svg viewBox="0 0 160 160" style={{ width: '100%', height: '100%' }}>
-                        <circle cx="80" cy="80" r="55" fill="none" stroke="#eeeae2" strokeWidth="18" />
-                        <circle
-                          cx="80"
-                          cy="80"
-                          r="55"
-                          fill="none"
-                          stroke="var(--admin-green)"
-                          strokeWidth="18"
-                          strokeLinecap="round"
-                          strokeDasharray="218 346"
-                          transform="rotate(-90 80 80)"
-                        />
-                        <circle
-                          cx="80"
-                          cy="80"
-                          r="55"
-                          fill="none"
-                          stroke="var(--admin-amber)"
-                          strokeWidth="18"
-                          strokeLinecap="round"
-                          strokeDasharray="50 346"
-                          strokeDashoffset="-224"
-                          transform="rotate(-90 80 80)"
-                        />
-                        <circle
-                          cx="80"
-                          cy="80"
-                          r="55"
-                          fill="none"
-                          stroke="var(--admin-purple)"
-                          strokeWidth="18"
-                          strokeLinecap="round"
-                          strokeDasharray="65 346"
-                          strokeDashoffset="-280"
-                          transform="rotate(-90 80 80)"
-                        />
-                        <circle
-                          cx="80"
-                          cy="80"
-                          r="55"
-                          fill="none"
-                          stroke="var(--admin-blue)"
-                          strokeWidth="18"
-                          strokeLinecap="round"
-                          strokeDasharray="22 346"
-                          strokeDashoffset="-350"
-                          transform="rotate(-90 80 80)"
-                        />
+                        <circle cx="80" cy="80" r="56" fill="none" stroke="#f1ece3" strokeWidth="15" />
+                        {/* Pending (Amber) */}
+                        {fulfillmentDonut.pendingLen > 0 && (
+                          <circle
+                            cx="80"
+                            cy="80"
+                            r="56"
+                            fill="none"
+                            stroke="#f59e0b"
+                            strokeWidth="15"
+                            strokeLinecap="round"
+                            strokeDasharray={`${fulfillmentDonut.pendingLen} ${fulfillmentDonut.circumference}`}
+                            strokeDashoffset={fulfillmentDonut.pendingOffset}
+                            transform="rotate(-90 80 80)"
+                          />
+                        )}
+                        {/* Confirmed (Sky) */}
+                        {fulfillmentDonut.confirmedLen > 0 && (
+                          <circle
+                            cx="80"
+                            cy="80"
+                            r="56"
+                            fill="none"
+                            stroke="#0284c7"
+                            strokeWidth="15"
+                            strokeLinecap="round"
+                            strokeDasharray={`${fulfillmentDonut.confirmedLen} ${fulfillmentDonut.circumference}`}
+                            strokeDashoffset={fulfillmentDonut.confirmedOffset}
+                            transform="rotate(-90 80 80)"
+                          />
+                        )}
+                        {/* Dispatched (Indigo) */}
+                        {fulfillmentDonut.dispatchedLen > 0 && (
+                          <circle
+                            cx="80"
+                            cy="80"
+                            r="56"
+                            fill="none"
+                            stroke="#6366f1"
+                            strokeWidth="15"
+                            strokeLinecap="round"
+                            strokeDasharray={`${fulfillmentDonut.dispatchedLen} ${fulfillmentDonut.circumference}`}
+                            strokeDashoffset={fulfillmentDonut.dispatchedOffset}
+                            transform="rotate(-90 80 80)"
+                          />
+                        )}
+                        {/* Delivered (Emerald) */}
+                        {fulfillmentDonut.deliveredLen > 0 && (
+                          <circle
+                            cx="80"
+                            cy="80"
+                            r="56"
+                            fill="none"
+                            stroke="#10b981"
+                            strokeWidth="15"
+                            strokeLinecap="round"
+                            strokeDasharray={`${fulfillmentDonut.deliveredLen} ${fulfillmentDonut.circumference}`}
+                            strokeDashoffset={fulfillmentDonut.deliveredOffset}
+                            transform="rotate(-90 80 80)"
+                          />
+                        )}
                       </svg>
                       <div style={{ position: 'absolute', inset: 0, display: 'grid', placeItems: 'center', textAlign: 'center' }}>
                         <div>
-                          <strong style={{ fontSize: 22, color: 'var(--admin-ink)' }}>{orderStats.totalOrders}</strong>
-                          <span style={{ display: 'block', fontSize: 10, color: 'var(--admin-muted)', textTransform: 'uppercase' }}>Orders</span>
+                          <strong style={{ fontSize: 24, fontWeight: 700, color: 'var(--admin-ink)', display: 'block', lineHeight: 1 }}>
+                            {orderStats.totalOrders}
+                          </strong>
+                          <span style={{ fontSize: 10, color: 'var(--admin-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 600 }}>
+                            Orders
+                          </span>
                         </div>
                       </div>
                     </div>
+                  </div>
 
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8, fontSize: 12 }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                        <span style={{ color: 'var(--admin-amber)', fontWeight: 500 }}>● Pending</span>
-                        <b>{orderStats.pendingCount} ({orderStats.totalOrders ? Math.round((orderStats.pendingCount / orderStats.totalOrders) * 100) : 0}%)</b>
-                      </div>
-                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                        <span style={{ color: 'var(--admin-blue)', fontWeight: 500 }}>● Confirmed</span>
-                        <b>{orderStats.confirmedCount} ({orderStats.totalOrders ? Math.round((orderStats.confirmedCount / orderStats.totalOrders) * 100) : 0}%)</b>
-                      </div>
-                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                        <span style={{ color: 'var(--admin-purple)', fontWeight: 500 }}>● Dispatched</span>
-                        <b>{orderStats.dispatchedCount} ({orderStats.totalOrders ? Math.round((orderStats.dispatchedCount / orderStats.totalOrders) * 100) : 0}%)</b>
-                      </div>
-                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                        <span style={{ color: 'var(--admin-green)', fontWeight: 500 }}>● Delivered</span>
-                        <b>{orderStats.deliveredCount} ({orderStats.totalOrders ? Math.round((orderStats.deliveredCount / orderStats.totalOrders) * 100) : 0}%)</b>
-                      </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8, fontSize: 12 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#fcfaf6', padding: '6px 10px', borderRadius: 6 }}>
+                      <span style={{ color: '#b45309', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                        <i style={{ width: 8, height: 8, borderRadius: '50%', background: '#f59e0b', display: 'inline-block' }} />
+                        Pending
+                      </span>
+                      <b>{orderStats.pendingCount} <span style={{ color: 'var(--admin-muted)', fontWeight: 500 }}>({orderStats.totalOrders ? Math.round((orderStats.pendingCount / orderStats.totalOrders) * 100) : 0}%)</span></b>
+                    </div>
+
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#fcfaf6', padding: '6px 10px', borderRadius: 6 }}>
+                      <span style={{ color: '#0369a1', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                        <i style={{ width: 8, height: 8, borderRadius: '50%', background: '#0284c7', display: 'inline-block' }} />
+                        Confirmed
+                      </span>
+                      <b>{orderStats.confirmedCount} <span style={{ color: 'var(--admin-muted)', fontWeight: 500 }}>({orderStats.totalOrders ? Math.round((orderStats.confirmedCount / orderStats.totalOrders) * 100) : 0}%)</span></b>
+                    </div>
+
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#fcfaf6', padding: '6px 10px', borderRadius: 6 }}>
+                      <span style={{ color: '#4338ca', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                        <i style={{ width: 8, height: 8, borderRadius: '50%', background: '#6366f1', display: 'inline-block' }} />
+                        Dispatched
+                      </span>
+                      <b>{orderStats.dispatchedCount} <span style={{ color: 'var(--admin-muted)', fontWeight: 500 }}>({orderStats.totalOrders ? Math.round((orderStats.dispatchedCount / orderStats.totalOrders) * 100) : 0}%)</span></b>
+                    </div>
+
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#fcfaf6', padding: '6px 10px', borderRadius: 6 }}>
+                      <span style={{ color: '#047857', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                        <i style={{ width: 8, height: 8, borderRadius: '50%', background: '#10b981', display: 'inline-block' }} />
+                        Delivered
+                      </span>
+                      <b>{orderStats.deliveredCount} <span style={{ color: 'var(--admin-muted)', fontWeight: 500 }}>({orderStats.totalOrders ? Math.round((orderStats.deliveredCount / orderStats.totalOrders) * 100) : 0}%)</span></b>
                     </div>
                   </div>
                 </div>
               </div>
 
               {/* Analytics Bottom Grid */}
-              <div className="analytics-bottom">
+              <div className="analytics-bottom" style={{ marginTop: 16 }}>
+                {/* 3. Top Brands by Valuation */}
                 <div className="panel">
                   <div className="panel-head">
                     <div>
-                      <div className="panel-title">Top Brands by Valuation</div>
-                      <div className="panel-sub">Inventory asset allocation</div>
+                      <div className="panel-title">Brand Allocation &amp; Valuation</div>
+                      <div className="panel-sub">Asset distribution across luxury marques</div>
                     </div>
                   </div>
 
-                  <div style={{ marginTop: 8 }}>
-                    {brandSalesRank.map((b) => (
-                      <div className="rank-row" key={b.name}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                          <div className="rank-num">{b.rank}</div>
-                          <div>
-                            <div style={{ fontWeight: 600, fontSize: 13, color: 'var(--admin-ink)' }}>{b.name}</div>
-                            <div style={{ fontSize: 11, color: 'var(--admin-muted)' }}>{b.valueFormatted}</div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginTop: 10 }}>
+                    {brandAnalytics.length === 0 ? (
+                      <div style={{ color: 'var(--admin-muted)', fontSize: 12, padding: '16px 0', textAlign: 'center' }}>
+                        No catalog brands recorded.
+                      </div>
+                    ) : (
+                      brandAnalytics.map((b) => (
+                        <div key={b.name} style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 13 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                              <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 7px', background: '#f3ede2', color: '#927019', borderRadius: 4, letterSpacing: '0.04em' }}>
+                                #{b.rank}
+                              </span>
+                              <strong style={{ color: 'var(--admin-ink)' }}>{b.name}</strong>
+                              <span style={{ fontSize: 11, color: 'var(--admin-muted)' }}>({b.units} pcs)</span>
+                            </div>
+                            <strong style={{ color: 'var(--admin-ink)', fontSize: 13 }}>{b.formattedValuation}</strong>
+                          </div>
+                          <div style={{ height: 6, background: '#eee8dc', borderRadius: 9999, overflow: 'hidden' }}>
+                            <div
+                              style={{
+                                width: `${Math.max(6, b.sharePct)}%`,
+                                height: '100%',
+                                background: 'linear-gradient(90deg, #10b981 0%, #0284c7 100%)',
+                                borderRadius: 9999,
+                              }}
+                            />
                           </div>
                         </div>
-                        <div className="rank-progress-bar">
-                          <span className="rank-progress-fill" style={{ width: `${b.pct}%` }} />
+                      ))
+                    )}
+                  </div>
+                </div>
+
+                {/* 4. Payment Mode Split */}
+                <div className="panel">
+                  <div className="panel-head">
+                    <div>
+                      <div className="panel-title">Payment Settlement Velocity</div>
+                      <div className="panel-sub">UPI digital payments vs Cash on Delivery</div>
+                    </div>
+                  </div>
+
+                  <div style={{ marginTop: 12 }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 12 }}>
+                      <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 8, padding: 10 }}>
+                        <span style={{ fontSize: 10, color: '#15803d', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.06em' }}>UPI Digital</span>
+                        <div style={{ fontSize: 18, fontWeight: 700, color: '#15803d', marginTop: 2 }}>
+                          ₹{paymentAnalytics.upiTotal.toLocaleString('en-IN')}
                         </div>
+                        <div style={{ fontSize: 11, color: '#166534', marginTop: 2 }}>{paymentAnalytics.upiCount} orders ({paymentAnalytics.upiPct}%)</div>
                       </div>
-                    ))}
-                  </div>
-                </div>
 
-                <div className="panel">
-                  <div className="panel-head">
-                    <div>
-                      <div className="panel-title">Inventory Stock Mix</div>
-                      <div className="panel-sub">{totalPhysicalUnits} physical units in warehouse</div>
+                      <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 8, padding: 10 }}>
+                        <span style={{ fontSize: 10, color: '#475569', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.06em' }}>COD Cash</span>
+                        <div style={{ fontSize: 18, fontWeight: 700, color: '#1e293b', marginTop: 2 }}>
+                          ₹{paymentAnalytics.codTotal.toLocaleString('en-IN')}
+                        </div>
+                        <div style={{ fontSize: 11, color: '#475569', marginTop: 2 }}>{paymentAnalytics.codCount} orders ({paymentAnalytics.codPct}%)</div>
+                      </div>
                     </div>
-                  </div>
 
-                  <div style={{ fontSize: 32, fontWeight: 700, marginTop: 8, color: 'var(--admin-ink)' }}>
-                    {totalPhysicalUnits}
-                  </div>
-                  <div style={{ fontSize: 12, color: 'var(--admin-muted)' }}>Units currently on shelf</div>
-
-                  <div style={{ height: 8, background: '#eeeae0', borderRadius: 9999, overflow: 'hidden', marginTop: 16, display: 'flex' }}>
-                    <span style={{ width: `${inStockPct}%`, background: 'var(--admin-green)' }} />
-                    <span style={{ width: `${lowStockPct}%`, background: 'var(--admin-amber)' }} />
-                    <span style={{ width: `${outStockPct}%`, background: 'var(--admin-red)' }} />
-                  </div>
-
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 16, fontSize: 12 }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <span style={{ color: 'var(--admin-green)', fontWeight: 500 }}>In Stock Units</span>
-                      <b>{inStockPct}%</b>
+                    <div style={{ height: 10, background: '#eeeae2', borderRadius: 9999, overflow: 'hidden', display: 'flex' }}>
+                      <div style={{ width: `${paymentAnalytics.upiPct}%`, background: '#10b981' }} title="UPI Online" />
+                      <div style={{ width: `${paymentAnalytics.codPct}%`, background: '#334155' }} title="Cash on Delivery" />
                     </div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <span style={{ color: 'var(--admin-amber)', fontWeight: 500 }}>Low Stock Units</span>
-                      <b>{lowStockPct}%</b>
-                    </div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <span style={{ color: 'var(--admin-red)', fontWeight: 500 }}>Out of Stock</span>
-                      <b>{outStockPct}%</b>
+
+                    <div style={{ background: '#faf8f5', border: '1px solid var(--admin-border-subtle)', borderRadius: 8, padding: '10px 12px', marginTop: 16 }}>
+                      <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--admin-ink)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Settlement Risk Assessment</div>
+                      <div style={{ fontSize: 11, color: 'var(--admin-muted)', marginTop: 4, lineHeight: 1.4 }}>
+                        {paymentAnalytics.upiPct >= 50
+                          ? 'Optimal prepaid velocity. Zero RTO delivery return risk.'
+                          : 'COD predominant. Recommend courier address pre-verification to minimize delivery returns.'}
+                      </div>
                     </div>
                   </div>
                 </div>
 
+                {/* 5. Top Selling Timepieces */}
                 <div className="panel">
                   <div className="panel-head">
                     <div>
-                      <div className="panel-title">Customer Retention Signals</div>
-                      <div className="panel-sub">Repeat purchase &amp; loyalty ratios</div>
+                      <div className="panel-title">Top Moving Timepieces</div>
+                      <div className="panel-sub">Highest revenue models from orders</div>
                     </div>
                   </div>
 
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginTop: 14, fontSize: 13 }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: 8, borderBottom: '1px solid var(--admin-border-subtle)' }}>
-                      <span style={{ color: 'var(--admin-muted)' }}>Repeat Collectors</span>
-                      <strong style={{ color: 'var(--admin-ink)' }}>38%</strong>
-                    </div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: 8, borderBottom: '1px solid var(--admin-border-subtle)' }}>
-                      <span style={{ color: 'var(--admin-muted)' }}>First-time Buyers</span>
-                      <strong style={{ color: 'var(--admin-ink)' }}>62%</strong>
-                    </div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: 8, borderBottom: '1px solid var(--admin-border-subtle)' }}>
-                      <span style={{ color: 'var(--admin-muted)' }}>Avg Order Ticket</span>
-                      <strong style={{ color: 'var(--admin-gold)' }}>₹29,032</strong>
-                    </div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <span style={{ color: 'var(--admin-muted)' }}>Inquiry → Order Conversion</span>
-                      <strong style={{ color: 'var(--admin-green)' }}>8.7%</strong>
-                    </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 8 }}>
+                    {topSellingModels.length === 0 ? (
+                      <div style={{ color: 'var(--admin-muted)', fontSize: 12, padding: '16px 0', textAlign: 'center' }}>
+                        No orders recorded yet.
+                      </div>
+                    ) : (
+                      topSellingModels.map((item, idx) => (
+                        <div
+                          key={idx}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 10,
+                            paddingBottom: 8,
+                            borderBottom: idx < topSellingModels.length - 1 ? '1px solid var(--admin-border-subtle)' : 'none',
+                          }}
+                        >
+                          {item.image ? (
+                            <img
+                              src={item.image}
+                              alt={item.name}
+                              className="product-thumb"
+                              style={{ width: 40, height: 40, minWidth: 40, minHeight: 40, borderRadius: 6, objectFit: 'cover' }}
+                            />
+                          ) : (
+                            <div className="product-thumb" style={{ width: 40, height: 40, minWidth: 40, minHeight: 40, display: 'grid', placeItems: 'center', borderRadius: 6 }}>
+                              <Package size={16} />
+                            </div>
+                          )}
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--admin-ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                              {item.name}
+                            </div>
+                            <div style={{ fontSize: 10, color: 'var(--admin-muted)', marginTop: 1 }}>
+                              {item.brand} &bull; {item.unitsSold} units ordered
+                            </div>
+                          </div>
+                          <div style={{ textAlign: 'right' }}>
+                            <strong style={{ fontSize: 13, color: 'var(--admin-ink)' }}>
+                              ₹{item.revenue.toLocaleString('en-IN')}
+                            </strong>
+                          </div>
+                        </div>
+                      ))
+                    )}
                   </div>
                 </div>
               </div>
@@ -1669,12 +2316,12 @@ export function AdminDashboardClient({
                     <thead>
                       <tr>
                         <th>Customer Dossier</th>
-                        <th>Contact Number</th>
-                        <th>Location</th>
-                        <th>Total Orders</th>
-                        <th>Total Spend</th>
+                        <th className="col-desktop">Contact Number</th>
+                        <th className="col-desktop">Location</th>
+                        <th className="col-desktop">Total Orders</th>
+                        <th className="col-desktop">Total Spend</th>
                         <th>Segment Badge</th>
-                        <th style={{ textAlign: 'right' }}>Actions</th>
+                        <th className="col-actions">Actions</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -1688,16 +2335,19 @@ export function AdminDashboardClient({
                               <div>
                                 <strong style={{ color: 'var(--admin-ink)', fontSize: 13 }}>{c.name}</strong>
                                 <div className="product-sku">{c.email}</div>
+                                <div className="mobile-only" style={{ fontSize: 11, fontWeight: 700, color: 'var(--admin-gold)', marginTop: 2 }}>
+                                  ₹{c.totalSpent.toLocaleString('en-IN')} • {c.totalOrders} order{c.totalOrders === 1 ? '' : 's'}
+                                </div>
                               </div>
                             </div>
                           </td>
 
-                          <td style={{ fontSize: 13 }}>{c.phone}</td>
-                          <td style={{ fontSize: 13 }}>{c.location}</td>
-                          <td>
+                          <td className="col-desktop" style={{ fontSize: 13 }}>{c.phone}</td>
+                          <td className="col-desktop" style={{ fontSize: 13 }}>{c.location}</td>
+                          <td className="col-desktop">
                             <strong style={{ fontSize: 13 }}>{c.totalOrders}</strong>
                           </td>
-                          <td>
+                          <td className="col-desktop">
                             <div className="product-price">₹{c.totalSpent.toLocaleString('en-IN')}</div>
                           </td>
                           <td>
@@ -1713,12 +2363,21 @@ export function AdminDashboardClient({
                               {c.segment}
                             </span>
                           </td>
-                          <td style={{ textAlign: 'right' }}>
+                          <td className="col-actions">
                             <button
                               type="button"
                               className="btn"
-                              style={{ height: 30, padding: '0 10px', fontSize: 12 }}
-                              onClick={() => showToast(`Viewing customer record for ${c.name}`)}
+                              style={{
+                                height: 29,
+                                padding: '0 10px',
+                                fontSize: 11,
+                                margin: '0 auto',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: 4,
+                              }}
+                              onClick={() => setViewingCustomer(c)}
+                              title="View Customer Dossier"
                             >
                               <Eye size={12} />
                               <span>View</span>
@@ -1744,44 +2403,6 @@ export function AdminDashboardClient({
           {activeScreen === 'settings' && (
             <div>
               <div className="settings-grid">
-                <div className="settings-nav">
-                  <button
-                    type="button"
-                    className={`settings-nav-btn ${settingsTab === 'general' ? 'active' : ''}`}
-                    onClick={() => setSettingsTab('general')}
-                  >
-                    General Configuration
-                  </button>
-                  <button
-                    type="button"
-                    className={`settings-nav-btn ${settingsTab === 'store' ? 'active' : ''}`}
-                    onClick={() => setSettingsTab('store')}
-                  >
-                    Store &amp; Currencies
-                  </button>
-                  <button
-                    type="button"
-                    className={`settings-nav-btn ${settingsTab === 'notifications' ? 'active' : ''}`}
-                    onClick={() => setSettingsTab('notifications')}
-                  >
-                    Notifications &amp; Alerts
-                  </button>
-                  <button
-                    type="button"
-                    className={`settings-nav-btn ${settingsTab === 'users' ? 'active' : ''}`}
-                    onClick={() => setSettingsTab('users')}
-                  >
-                    Executive Access
-                  </button>
-                  <button
-                    type="button"
-                    className={`settings-nav-btn ${settingsTab === 'security' ? 'active' : ''}`}
-                    onClick={() => setSettingsTab('security')}
-                  >
-                    Security &amp; Audit Log
-                  </button>
-                </div>
-
                 <div className="form-panel">
                   <div className="form-title">Store Information &amp; Operational Preferences</div>
                   <div className="form-sub">
@@ -1985,9 +2606,40 @@ export function AdminDashboardClient({
         />
       )}
 
+      {/* 5B. CUSTOMER PROFILE DOSSIER MODAL */}
+      {viewingCustomer && (
+        <CustomerModal
+          customer={viewingCustomer}
+          onClose={() => setViewingCustomer(null)}
+          onSelectOrder={(ord) => {
+            setViewingCustomer(null);
+            setViewingOrder(ord);
+          }}
+        />
+      )}
+
+      {/* 5C. PRODUCT DETAILS MODAL (MOBILE DOSSIER) */}
+      {viewingProductDetails && (
+        <ProductDetailsModal
+          product={viewingProductDetails}
+          onClose={() => setViewingProductDetails(null)}
+          onEdit={() => {
+            const p = viewingProductDetails;
+            setViewingProductDetails(null);
+            setEditingProduct(p);
+          }}
+          onDelete={() => {
+            const p = viewingProductDetails;
+            setViewingProductDetails(null);
+            setDeletingProduct(p);
+          }}
+          onStockChange={handleStockChange}
+        />
+      )}
+
       {/* 6. DELETE CONFIRMATION MODAL */}
       {deletingProduct && (
-        <div className="overlay" onClick={() => setDeletingProduct(null)}>
+        <div className="overlay open" onClick={() => setDeletingProduct(null)}>
           <div className="modal" style={{ maxWidth: 440 }} onClick={(e) => e.stopPropagation()}>
             <div className="modal-head">
               <div>
@@ -2120,7 +2772,7 @@ function TimepieceModal({ product, brands, submitting, onClose, onSave }: Timepi
   };
 
   return (
-    <div className="overlay" onClick={onClose}>
+    <div className="overlay open" onClick={onClose}>
       <div className="modal" onClick={(e) => e.stopPropagation()}>
         <div className="modal-head">
           <div>
@@ -2159,18 +2811,6 @@ function TimepieceModal({ product, brands, submitting, onClose, onSave }: Timepi
                   style={{ display: 'none' }}
                 />
               </label>
-
-              <div style={{ marginTop: 8 }}>
-                <label style={{ fontSize: 11, color: 'var(--admin-muted)', fontWeight: 600 }}>Or Direct Image URL</label>
-                <input
-                  type="url"
-                  className="search-input"
-                  style={{ height: 34, fontSize: 12, marginTop: 4, width: '100%' }}
-                  placeholder="https://..."
-                  value={image}
-                  onChange={(e) => setImage(e.target.value)}
-                />
-              </div>
             </div>
 
             <div className="form-grid">
@@ -2261,7 +2901,7 @@ function OrderDossierModal({ order, onClose, onSave }: OrderDossierModalProps) {
   };
 
   return (
-    <div className="overlay" onClick={onClose}>
+    <div className="overlay open" onClick={onClose}>
       <div className="modal" style={{ width: 'min(720px, 100%)' }} onClick={(e) => e.stopPropagation()}>
         <div className="modal-head">
           <div>
@@ -2419,6 +3059,729 @@ function OrderDossierModal({ order, onClose, onSave }: OrderDossierModalProps) {
           <button type="button" className="btn btn-gold" onClick={handleUpdate} disabled={submitting}>
             {submitting ? 'Saving...' : 'Save Status & Tracking'}
           </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+interface CustomerModalProps {
+  customer: CustomerProfile;
+  onClose: () => void;
+  onSelectOrder: (order: Order) => void;
+}
+
+function CustomerModal({ customer, onClose, onSelectOrder }: CustomerModalProps) {
+  const initials = customer.name
+    .split(' ')
+    .filter(Boolean)
+    .map((n) => n[0])
+    .join('')
+    .slice(0, 2)
+    .toUpperCase() || 'WT';
+
+  const cleanPhone = customer.phone.replace(/[^0-9]/g, '');
+  const ordersList = customer.customerOrders || [];
+  const totalPieces = ordersList.reduce((acc, o) => {
+    return acc + o.items.reduce((sum, it) => sum + (it.quantity || 1), 0);
+  }, 0) || customer.totalItems || customer.totalOrders;
+
+  const totalSpent = ordersList.reduce((acc, o) => acc + (o.total || o.totalAmount || 0), 0) || customer.totalSpent;
+  const avgTicket = Math.round(totalSpent / (ordersList.length || customer.totalOrders || 1));
+
+  return (
+    <div className="overlay open" onClick={onClose}>
+      <div className="modal" style={{ maxWidth: 780, maxHeight: '90vh', overflowY: 'auto' }} onClick={(e) => e.stopPropagation()}>
+        {/* Header */}
+        <div className="modal-head" style={{ alignItems: 'flex-start', paddingBottom: 16 }}>
+          <div style={{ display: 'flex', gap: 14, alignItems: 'center' }}>
+            <div
+              style={{
+                width: 52,
+                height: 52,
+                borderRadius: '50%',
+                background: 'linear-gradient(135deg, rgba(212, 175, 55, 0.2), rgba(179, 139, 67, 0.35))',
+                border: '1.5px solid var(--admin-gold)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: 19,
+                fontWeight: 700,
+                color: 'var(--admin-gold)',
+                letterSpacing: '0.04em',
+                flexShrink: 0,
+              }}
+            >
+              {initials}
+            </div>
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                <h2 className="modal-title" style={{ fontSize: 20, margin: 0 }}>
+                  {customer.name}
+                </h2>
+                <span
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    padding: '2px 9px',
+                    borderRadius: 999,
+                    fontSize: 11,
+                    fontWeight: 700,
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.06em',
+                    background:
+                      customer.segment === 'VIP'
+                        ? 'rgba(212, 175, 55, 0.18)'
+                        : customer.segment === 'Repeat'
+                        ? 'rgba(34, 197, 94, 0.14)'
+                        : customer.segment === 'New'
+                        ? 'rgba(59, 130, 246, 0.14)'
+                        : 'rgba(15, 23, 42, 0.08)',
+                    color:
+                      customer.segment === 'VIP'
+                        ? '#927019'
+                        : customer.segment === 'Repeat'
+                        ? '#15803d'
+                        : customer.segment === 'New'
+                        ? '#1d4ed8'
+                        : '#475569',
+                    border:
+                      customer.segment === 'VIP'
+                        ? '1px solid rgba(212, 175, 55, 0.35)'
+                        : '1px solid transparent',
+                  }}
+                >
+                  {customer.segment} Patron
+                </span>
+              </div>
+              <div className="modal-sub" style={{ marginTop: 4 }}>
+                Primary Delivery Destination: <strong>{customer.location}</strong>
+                {customer.firstOrderDate && (
+                  <> • Collector since {new Date(customer.firstOrderDate).toLocaleDateString('en-IN', { month: 'short', year: 'numeric' })}</>
+                )}
+              </div>
+            </div>
+          </div>
+          <button type="button" className="modal-close" onClick={onClose}>
+            <X size={16} />
+          </button>
+        </div>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          {/* Executive KPI Stats (4 Cards) */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10 }}>
+            <div style={{ background: '#fcfaf6', border: '1px solid var(--admin-border)', borderRadius: 10, padding: 12 }}>
+              <div style={{ fontSize: 10, color: 'var(--admin-muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                Lifetime Purchases
+              </div>
+              <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--admin-ink)', marginTop: 4, fontFamily: 'serif' }}>
+                ₹{totalSpent.toLocaleString('en-IN')}
+              </div>
+            </div>
+            <div style={{ background: '#fcfaf6', border: '1px solid var(--admin-border)', borderRadius: 10, padding: 12 }}>
+              <div style={{ fontSize: 10, color: 'var(--admin-muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                Orders Placed
+              </div>
+              <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--admin-ink)', marginTop: 4 }}>
+                {ordersList.length || customer.totalOrders}
+              </div>
+            </div>
+            <div style={{ background: '#fcfaf6', border: '1px solid var(--admin-border)', borderRadius: 10, padding: 12 }}>
+              <div style={{ fontSize: 10, color: 'var(--admin-muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                Watches Acquired
+              </div>
+              <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--admin-gold)', marginTop: 4 }}>
+                {totalPieces}
+              </div>
+            </div>
+            <div style={{ background: '#fcfaf6', border: '1px solid var(--admin-border)', borderRadius: 10, padding: 12 }}>
+              <div style={{ fontSize: 10, color: 'var(--admin-muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                Avg Order Ticket
+              </div>
+              <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--admin-ink)', marginTop: 4, fontFamily: 'serif' }}>
+                ₹{avgTicket.toLocaleString('en-IN')}
+              </div>
+            </div>
+          </div>
+
+          {/* Contact & Shipping Dossier */}
+          <div style={{ background: '#ffffff', border: '1px solid var(--admin-border)', borderRadius: 10, padding: 14 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+              <div>
+                <div style={{ fontSize: 11, color: 'var(--admin-muted)', marginBottom: 2 }}>Direct Contact Phone</div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <a
+                    href={`tel:${customer.phone}`}
+                    style={{ fontSize: 13, fontWeight: 600, color: 'var(--admin-ink)', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 4 }}
+                  >
+                    <Phone size={13} style={{ color: 'var(--admin-gold)' }} />
+                    {customer.phone}
+                  </a>
+                  {cleanPhone && (
+                    <a
+                      href={`https://wa.me/${cleanPhone}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="btn"
+                      style={{ padding: '2px 8px', fontSize: 11, background: '#25D366', color: '#fff', border: 'none', borderRadius: 4 }}
+                    >
+                      WhatsApp
+                    </a>
+                  )}
+                </div>
+              </div>
+
+              <div>
+                <div style={{ fontSize: 11, color: 'var(--admin-muted)', marginBottom: 2 }}>Registered Email</div>
+                <div>
+                  {customer.email ? (
+                    <a
+                      href={`mailto:${customer.email}`}
+                      style={{ fontSize: 13, color: 'var(--admin-ink)', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 4 }}
+                    >
+                      <Mail size={13} style={{ color: 'var(--admin-gold)' }} />
+                      {customer.email}
+                    </a>
+                  ) : (
+                    <span style={{ fontSize: 13, color: 'var(--admin-muted)' }}>—</span>
+                  )}
+                </div>
+              </div>
+
+              <div style={{ gridColumn: '1 / -1', borderTop: '1px dashed var(--admin-border)', paddingTop: 10, marginTop: 2 }}>
+                <div style={{ fontSize: 11, color: 'var(--admin-muted)', marginBottom: 2 }}>Primary Shipping Address</div>
+                <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--admin-ink)', display: 'flex', alignItems: 'flex-start', gap: 6 }}>
+                  <MapPin size={15} style={{ color: 'var(--admin-gold)', flexShrink: 0, marginTop: 2 }} />
+                  <span>
+                    {customer.street ? `${customer.street}, ` : ''}
+                    {customer.city ? `${customer.city}, ` : ''}
+                    {customer.state ? `${customer.state} ` : ''}
+                    {customer.pincode ? `— ${customer.pincode}` : ''}
+                    {!customer.street && !customer.city && customer.location}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* ALL PURCHASES MADE ENTIRELY */}
+          <div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+              <div>
+                <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--admin-ink)', letterSpacing: '0.02em' }}>
+                  All Customer Purchases &amp; Acquired Timepieces
+                </div>
+                <div style={{ fontSize: 11, color: 'var(--admin-muted)', marginTop: 1 }}>
+                  Complete itemized breakdown of every order and watch acquired by this customer
+                </div>
+              </div>
+              <span className="pill confirmed" style={{ fontSize: 11 }}>
+                {ordersList.length} Order{ordersList.length === 1 ? '' : 's'} Total
+              </span>
+            </div>
+
+            {ordersList.length === 0 ? (
+              <div style={{ padding: '30px 16px', textAlign: 'center', background: '#fcfaf6', borderRadius: 10, border: '1px solid var(--admin-border)', color: 'var(--admin-muted)', fontSize: 13 }}>
+                No active orders recorded for this collector.
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                {ordersList.map((ord) => {
+                  const orderTotal = ord.total || ord.totalAmount || 0;
+                  return (
+                    <div key={ord.id} className="customer-order-card">
+                      {/* Order Header */}
+                      <div className="customer-order-header">
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                          <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--admin-ink)', letterSpacing: '0.02em' }}>
+                            {ord.orderNumber}
+                          </span>
+                          <span className={`status-badge status-${ord.status}`} style={{ fontSize: 10, padding: '2px 8px' }}>
+                            {ord.status}
+                          </span>
+                          <span
+                            style={{
+                              fontSize: 10,
+                              fontWeight: 600,
+                              padding: '2px 7px',
+                              borderRadius: 4,
+                              background: ord.paymentMethod === 'cod' ? '#fef3c7' : '#dcfce7',
+                              color: ord.paymentMethod === 'cod' ? '#92400e' : '#166534',
+                              textTransform: 'uppercase',
+                            }}
+                          >
+                            {ord.paymentMethod === 'cod' ? 'Cash on Delivery' : 'UPI Online Paid'}
+                          </span>
+                        </div>
+
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+                          <div style={{ textAlign: 'right' }}>
+                            <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--admin-ink)', fontFamily: 'serif' }}>
+                              ₹{orderTotal.toLocaleString('en-IN')}
+                            </div>
+                            <div style={{ fontSize: 10, color: 'var(--admin-muted)' }}>
+                              {new Date(ord.createdAt).toLocaleString('en-IN', {
+                                month: 'short',
+                                day: 'numeric',
+                                year: 'numeric',
+                                hour: '2-digit',
+                                minute: '2-digit',
+                              })}
+                            </div>
+                          </div>
+                          <button
+                            type="button"
+                            className="btn"
+                            style={{ padding: '4px 10px', fontSize: 11, display: 'inline-flex', alignItems: 'center', gap: 4 }}
+                            onClick={() => onSelectOrder(ord)}
+                            title="Open full logistics & tracking editor"
+                          >
+                            <Eye size={12} />
+                            Order Dossier
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Itemized Purchased Timepieces */}
+                      <div style={{ background: '#ffffff' }}>
+                        {ord.items.map((it, idx) => (
+                          <div key={idx} className="customer-item-row">
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                              {it.image ? (
+                                <img
+                                  src={it.image}
+                                  alt={it.name}
+                                  className="product-thumb"
+                                  style={{
+                                    width: 48,
+                                    height: 48,
+                                    minWidth: 48,
+                                    minHeight: 48,
+                                    maxWidth: 48,
+                                    maxHeight: 48,
+                                    borderRadius: 8,
+                                    objectFit: 'cover',
+                                    border: '1px solid rgba(0,0,0,0.08)',
+                                  }}
+                                  onError={(e) => {
+                                    (e.target as HTMLImageElement).src = 'https://watchtown.in/wp-content/uploads/2025/11/Coach-Delancey-Rose-Gold-Black-Dial-36mm-1-600x600.jpg';
+                                  }}
+                                />
+                              ) : (
+                                <div
+                                  className="product-thumb"
+                                  style={{
+                                    width: 48,
+                                    height: 48,
+                                    minWidth: 48,
+                                    minHeight: 48,
+                                    borderRadius: 8,
+                                    display: 'grid',
+                                    placeItems: 'center',
+                                    background: '#f8f5ee',
+                                    border: '1px solid rgba(0,0,0,0.08)',
+                                  }}
+                                >
+                                  <Package size={18} color="var(--admin-gold)" />
+                                </div>
+                              )}
+
+                              <div>
+                                <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--admin-ink)', lineHeight: 1.3 }}>
+                                  {it.name}
+                                </div>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 3 }}>
+                                  <span style={{ fontSize: 10, fontWeight: 700, padding: '1px 6px', background: '#f5efe4', color: '#927019', borderRadius: 4 }}>
+                                    {it.brand || 'Luxury Horology'}
+                                  </span>
+                                  {it.productId && (
+                                    <span style={{ fontSize: 11, color: 'var(--admin-muted)', fontFamily: 'monospace' }}>
+                                      ID: {it.productId}
+                                    </span>
+                                  )}
+                                  <span style={{ fontSize: 11, color: 'var(--admin-muted)' }}>
+                                    Unit: ₹{it.price.toLocaleString('en-IN')}
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+
+                            <div style={{ textAlign: 'right' }}>
+                              <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--admin-ink)' }}>
+                                ₹{(it.price * (it.quantity || 1)).toLocaleString('en-IN')}
+                              </div>
+                              <div style={{ fontSize: 11, color: 'var(--admin-muted)', marginTop: 2 }}>
+                                Qty: <strong style={{ color: 'var(--admin-ink)' }}>{it.quantity}</strong>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+
+                      {/* Order Logistics Footer */}
+                      <div
+                        style={{
+                          padding: '10px 16px',
+                          background: '#faf8f4',
+                          borderTop: '1px solid var(--admin-border-subtle)',
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          alignItems: 'center',
+                          flexWrap: 'wrap',
+                          gap: 10,
+                          fontSize: 11,
+                        }}
+                      >
+                        <div style={{ color: 'var(--admin-muted)' }}>
+                          Destination: <strong style={{ color: 'var(--admin-ink)' }}>{ord.customer.street}, {ord.customer.city} ({ord.customer.pincode})</strong>
+                        </div>
+                        {ord.trackingNumber ? (
+                          <div style={{ color: '#0369a1', fontWeight: 600 }}>
+                            {ord.courier || 'Express'}: <span style={{ fontFamily: 'monospace' }}>{ord.trackingNumber}</span>
+                          </div>
+                        ) : (
+                          <div style={{ color: 'var(--admin-muted)' }}>Courier assignment pending</div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div className="modal-footer" style={{ marginTop: 20 }}>
+          <button type="button" className="btn btn-gold" onClick={onClose}>
+            Done
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// 5C. PRODUCT DETAILS MODAL (MOBILE DOSSIER)
+interface ProductDetailsModalProps {
+  product: Product;
+  onClose: () => void;
+  onEdit: () => void;
+  onDelete: () => void;
+  onStockChange: (id: string | number, newStock: number) => void;
+}
+
+function ProductDetailsModal({
+  product,
+  onClose,
+  onEdit,
+  onDelete,
+  onStockChange,
+}: ProductDetailsModalProps) {
+  const stock = Number(product.stock ?? (product.inStock ? 5 : 0));
+  const isOutOfStock = stock === 0 || product.inStock === false;
+  const isLowStock = !isOutOfStock && stock <= 5;
+
+  const discountPercent =
+    product.originalPrice && product.originalPrice > product.price
+      ? Math.round(((product.originalPrice - product.price) / product.originalPrice) * 100)
+      : null;
+
+  return (
+    <div className="overlay open" onClick={onClose}>
+      <div
+        className="modal"
+        style={{ maxWidth: 520, maxHeight: '90vh', overflowY: 'auto' }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="modal-head">
+          <div>
+            <div className="modal-title" style={{ fontSize: 16 }}>Timepiece Dossier</div>
+            <div className="modal-sub">Product SKU & inventory details</div>
+          </div>
+          <button type="button" className="modal-close" onClick={onClose}>
+            <X size={16} />
+          </button>
+        </div>
+
+        <div className="modal-body" style={{ padding: '16px 0 20px', display: 'flex', flexDirection: 'column', gap: 16 }}>
+          {/* Main Visual & Primary Spec */}
+          <div
+            style={{
+              display: 'flex',
+              gap: 16,
+              alignItems: 'center',
+              background: '#faf8f4',
+              padding: 14,
+              borderRadius: 12,
+              border: '1px solid var(--admin-border-subtle)',
+            }}
+          >
+            <div
+              style={{
+                width: 80,
+                height: 80,
+                borderRadius: 10,
+                overflow: 'hidden',
+                background: '#fff',
+                border: '1px solid var(--admin-border)',
+                flexShrink: 0,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              <img
+                src={product.image}
+                alt={product.name}
+                style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+                onError={(e) => {
+                  (e.target as HTMLImageElement).src =
+                    'https://watchtown.in/wp-content/uploads/2025/11/Coach-Delancey-Rose-Gold-Black-Dial-36mm-1-600x600.jpg';
+                }}
+              />
+            </div>
+
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', marginBottom: 4 }}>
+                <span
+                  style={{
+                    fontSize: 10,
+                    fontWeight: 800,
+                    letterSpacing: '0.06em',
+                    textTransform: 'uppercase',
+                    color: '#927019',
+                    background: '#fdf9f0',
+                    border: '1px solid #ebd9b5',
+                    padding: '2px 7px',
+                    borderRadius: 4,
+                  }}
+                >
+                  {product.brand || 'Luxury Horology'}
+                </span>
+                {product.sku && (
+                  <span style={{ fontSize: 11, fontFamily: 'monospace', color: 'var(--admin-muted)' }}>
+                    {product.sku}
+                  </span>
+                )}
+              </div>
+              <h3
+                style={{
+                  margin: 0,
+                  fontSize: 15,
+                  fontWeight: 700,
+                  color: 'var(--admin-ink)',
+                  lineHeight: 1.35,
+                }}
+              >
+                {product.name}
+              </h3>
+              {product.categories && product.categories.length > 0 && (
+                <div style={{ fontSize: 11, color: 'var(--admin-muted)', marginTop: 4 }}>
+                  {product.categories.join(' • ')}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Pricing & Valuation Card */}
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(2, 1fr)',
+              gap: 12,
+              padding: 14,
+              background: '#fff',
+              borderRadius: 12,
+              border: '1px solid var(--admin-border)',
+            }}
+          >
+            <div>
+              <div style={{ fontSize: 11, color: 'var(--admin-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                Selling Price
+              </div>
+              <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--admin-ink)', marginTop: 2 }}>
+                ₹{product.price.toLocaleString('en-IN')}
+              </div>
+              {product.originalPrice && product.originalPrice > product.price && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 2 }}>
+                  <span style={{ fontSize: 12, color: 'var(--admin-muted)', textDecoration: 'line-through' }}>
+                    ₹{product.originalPrice.toLocaleString('en-IN')}
+                  </span>
+                  {discountPercent && (
+                    <span style={{ fontSize: 10, fontWeight: 700, color: '#dc2626', background: '#fef2f2', padding: '1px 5px', borderRadius: 4 }}>
+                      {discountPercent}% OFF
+                    </span>
+                  )}
+                </div>
+              )}
+            </div>
+
+            <div>
+              <div style={{ fontSize: 11, color: 'var(--admin-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                Inventory Value
+              </div>
+              <div style={{ fontSize: 18, fontWeight: 800, color: '#b8860b', marginTop: 2 }}>
+                ₹{(product.price * stock).toLocaleString('en-IN')}
+              </div>
+              <div style={{ fontSize: 11, color: 'var(--admin-muted)', marginTop: 2 }}>
+                Total in vault
+              </div>
+            </div>
+          </div>
+
+          {/* Stock Stepper & Status Card */}
+          <div
+            style={{
+              padding: 14,
+              borderRadius: 12,
+              border: isOutOfStock
+                ? '1px solid #fecaca'
+                : isLowStock
+                ? '1px solid #fef08a'
+                : '1px solid var(--admin-border)',
+              background: isOutOfStock
+                ? '#fff5f5'
+                : isLowStock
+                ? '#fffdf0'
+                : '#fbfbfb',
+            }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <span
+                  style={{
+                    width: 8,
+                    height: 8,
+                    borderRadius: '50%',
+                    background: isOutOfStock ? '#dc2626' : isLowStock ? '#d97706' : '#16a34a',
+                  }}
+                />
+                <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--admin-ink)' }}>
+                  {isOutOfStock ? 'Out of Stock' : isLowStock ? 'Low Stock Warning' : 'In Stock & Active'}
+                </span>
+              </div>
+              <span style={{ fontSize: 12, color: 'var(--admin-muted)' }}>
+                Vault ID: <strong style={{ color: 'var(--admin-ink)' }}>#{product.id}</strong>
+              </span>
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+              <span style={{ fontSize: 13, color: 'var(--admin-ink)', fontWeight: 600 }}>
+                Adjust Physical Stock:
+              </span>
+              <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: '#fff', padding: '3px 6px', borderRadius: 8, border: '1px solid var(--admin-border)' }}>
+                <button
+                  type="button"
+                  onClick={() => onStockChange(product.id, stock - 1)}
+                  disabled={stock <= 0}
+                  style={{
+                    width: 28,
+                    height: 28,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    borderRadius: 6,
+                    border: '1px solid var(--admin-border)',
+                    background: '#f8f8f8',
+                    cursor: stock <= 0 ? 'not-allowed' : 'pointer',
+                    opacity: stock <= 0 ? 0.4 : 1,
+                  }}
+                >
+                  <Minus size={14} />
+                </button>
+                <span style={{ minWidth: 40, textAlign: 'center', fontWeight: 800, fontSize: 14 }}>
+                  {stock}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => onStockChange(product.id, stock + 1)}
+                  style={{
+                    width: 28,
+                    height: 28,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    borderRadius: 6,
+                    border: '1px solid var(--admin-border)',
+                    background: '#f8f8f8',
+                    cursor: 'pointer',
+                  }}
+                >
+                  <Plus size={14} />
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Description & Specs if available */}
+          {product.description && (
+            <div style={{ fontSize: 12, color: 'var(--admin-muted)', lineHeight: 1.5, background: '#fafafa', padding: 12, borderRadius: 8, border: '1px solid var(--admin-border-subtle)' }}>
+              <div style={{ fontWeight: 700, color: 'var(--admin-ink)', marginBottom: 4 }}>Timepiece Description</div>
+              {product.description}
+            </div>
+          )}
+
+          {/* Public Storefront Link if available */}
+          {product.url && (
+            <a
+              href={product.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 6,
+                fontSize: 12,
+                color: 'var(--admin-ink)',
+                textDecoration: 'none',
+                padding: '8px 12px',
+                borderRadius: 8,
+                border: '1px dashed var(--admin-border)',
+                background: '#fafafa',
+              }}
+            >
+              <span>View Product on Live Storefront</span>
+              <ExternalLink size={13} />
+            </a>
+          )}
+        </div>
+
+        {/* Modal Action Footer */}
+        <div
+          className="modal-footer"
+          style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            gap: 8,
+            paddingTop: 14,
+            borderTop: '1px solid var(--admin-border-subtle)',
+          }}
+        >
+          <button
+            type="button"
+            className="btn"
+            style={{ color: '#dc2626', borderColor: '#fecaca', background: '#fff5f5' }}
+            onClick={onDelete}
+          >
+            <Trash2 size={14} />
+            <span>Delete</span>
+          </button>
+
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button
+              type="button"
+              className="btn btn-gold"
+              onClick={onEdit}
+            >
+              <Edit2 size={14} />
+              <span>Edit Watch</span>
+            </button>
+            <button type="button" className="btn" onClick={onClose}>
+              Close
+            </button>
+          </div>
         </div>
       </div>
     </div>

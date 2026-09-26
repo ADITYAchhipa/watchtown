@@ -470,14 +470,36 @@
 }
 
 .btn.gold,
-#admin-root .btn.gold {
-  background: var(--gold) !important;
-  color: #ffffff !important;
-  border-color: var(--gold) !important;
+.btn.btn-gold,
+.btn-gold,
+#admin-root .btn.gold,
+#admin-root .btn.btn-gold,
+#admin-root .btn-gold {
+  background: linear-gradient(135deg, #d4af37 0%, #b38b43 100%) !important;
+  color: #0b0f14 !important;
+  font-weight: 700 !important;
+  border: 1px solid #d4af37 !important;
+  box-shadow: 0 2px 10px rgba(179, 139, 67, 0.28) !important;
+  border-radius: 9px !important;
+  padding: 0 16px !important;
+  height: 38px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 8px !important;
+  cursor: pointer !important;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1) !important;
 }
 .btn.gold:hover,
-#admin-root .btn.gold:hover {
-  background: #aa812f !important;
+.btn.btn-gold:hover,
+.btn-gold:hover,
+#admin-root .btn.gold:hover,
+#admin-root .btn.btn-gold:hover,
+#admin-root .btn-gold:hover {
+  background: linear-gradient(135deg, #e5be48 0%, #c4994d 100%) !important;
+  box-shadow: 0 4px 16px rgba(179, 139, 67, 0.45) !important;
+  transform: translateY(-1px) !important;
+  color: #07090c !important;
 }
 
 .btn.store,
@@ -695,19 +717,29 @@
 .tool-select,
 #admin-root .tool-select {
   height: 38px !important;
-  border: 1px solid var(--line) !important;
-  background: #ffffff !important;
+  border: 1px solid var(--admin-border) !important;
+  background: #ffffff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23707c87' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E") no-repeat calc(100% - 10px) center !important;
+  appearance: none !important;
+  -webkit-appearance: none !important;
   border-radius: 9px !important;
-  padding: 0 10px !important;
-  color: #4d5963 !important;
-  font-size: 11px !important;
-  min-width: 130px !important;
+  padding: 0 28px 0 12px !important;
+  color: var(--admin-ink) !important;
+  font-size: 12px !important;
+  font-weight: 500 !important;
+  min-width: 135px !important;
   outline: none !important;
   cursor: pointer !important;
+  transition: all 0.2s ease !important;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03) !important;
+}
+.tool-select:hover,
+#admin-root .tool-select:hover {
+  border-color: #c9c0b1 !important;
 }
 .tool-select:focus,
 #admin-root .tool-select:focus {
-  border-color: var(--gold) !important;
+  border-color: var(--admin-gold) !important;
+  box-shadow: 0 0 0 3px rgba(179, 139, 67, 0.15) !important;
 }
 
 /* 10. LUXURY DATA TABLE */
@@ -986,63 +1018,75 @@ tr:last-child td,
   display: flex !important;
   justify-content: space-between !important;
   align-items: center !important;
-  gap: 10px !important;
-  padding: 12px 14px !important;
-  border-top: 1px solid var(--line2) !important;
+  gap: 12px !important;
+  padding: 14px 18px !important;
+  border-top: 1px solid var(--admin-border) !important;
   background: #ffffff !important;
 }
 
 .pagination-text,
 #admin-root .pagination-text {
-  font-size: 11px !important;
-  color: #7d868c !important;
+  font-size: 12px !important;
+  font-weight: 500 !important;
+  color: var(--admin-muted) !important;
 }
 
 .pages,
-#admin-root .pages {
-  display: flex !important;
+.pagination-pages,
+#admin-root .pages,
+#admin-root .pagination-pages {
+  display: inline-flex !important;
+  flex-direction: row !important;
   align-items: center !important;
-  gap: 4px !important;
+  justify-content: flex-end !important;
+  gap: 6px !important;
 }
 
 .pg,
 .pg-btn,
 #admin-root .pg,
 #admin-root .pg-btn {
-  width: 28px !important;
-  height: 28px !important;
-  border: 1px solid var(--line) !important;
-  border-radius: 7px !important;
+  width: 34px !important;
+  height: 34px !important;
+  border: 1px solid var(--admin-border) !important;
+  border-radius: 8px !important;
   background: #ffffff !important;
-  font-size: 11px !important;
-  font-weight: 500 !important;
-  color: var(--ink) !important;
-  display: grid !important;
-  place-items: center !important;
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  color: var(--admin-ink) !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
   cursor: pointer !important;
   transition: all 0.15s ease !important;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03) !important;
 }
-.pg:hover,
-.pg-btn:hover,
-#admin-root .pg:hover,
-#admin-root .pg-btn:hover {
-  background: #f5f0e6 !important;
+.pg:hover:not(:disabled),
+.pg-btn:hover:not(:disabled),
+#admin-root .pg:hover:not(:disabled),
+#admin-root .pg-btn:hover:not(:disabled) {
+  background: #fbf9f4 !important;
+  border-color: var(--admin-gold) !important;
+  color: var(--admin-gold) !important;
 }
 .pg.active,
 .pg-btn.active,
 #admin-root .pg.active,
 #admin-root .pg-btn.active {
-  background: #171c20 !important;
-  border-color: #171c20 !important;
+  background: #0d1117 !important;
+  border-color: #0d1117 !important;
   color: #ffffff !important;
-  font-weight: 600 !important;
+  font-weight: 700 !important;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.18) !important;
 }
 .pg:disabled,
 .pg-btn:disabled,
 #admin-root .pg:disabled,
 #admin-root .pg-btn:disabled {
-  opacity: 0.4 !important;
+  opacity: 0.35 !important;
   cursor: not-allowed !important;
+  border-color: var(--admin-border-subtle) !important;
+  background: #fcfcfb !important;
 }
 
 /* 11. ORDERS MANAGEMENT SPECIFICS */
@@ -1225,18 +1269,9 @@ tr:last-child td,
 /* 14. SETTINGS & CONFIGURATION */
 .settings-grid,
 #admin-root .settings-grid {
-  display: grid !important;
-  grid-template-columns: 210px 1fr !important;
-  gap: 14px !important;
-}
-
-.settings-nav,
-#admin-root .settings-nav {
-  background: #ffffff !important;
-  border: 1px solid var(--line) !important;
-  border-radius: 12px !important;
-  padding: 8px !important;
-  height: max-content !important;
+  display: block !important;
+  max-width: 1080px !important;
+  margin: 0 auto !important;
 }
 
 .settings-nav button,
@@ -1433,22 +1468,54 @@ tr:last-child td,
 
 /* 15. MODALS & DOSSIERS */
 .overlay,
-#admin-root .overlay {
+.overlay.open,
+#admin-root .overlay,
+#admin-root .overlay.open {
   position: fixed !important;
   inset: 0 !important;
-  background: rgba(15, 17, 18, 0.5) !important;
-  backdrop-filter: blur(4px) !important;
-  -webkit-backdrop-filter: blur(4px) !important;
-  display: none !important;
+  background: rgba(15, 17, 18, 0.65) !important;
+  backdrop-filter: blur(5px) !important;
+  -webkit-backdrop-filter: blur(5px) !important;
+  display: flex !important;
   align-items: center !important;
   justify-content: center !important;
-  padding: 20px !important;
-  z-index: 100 !important;
+  padding: 16px !important;
+  z-index: 99999 !important;
 }
 
-.overlay.open,
-#admin-root .overlay.open {
-  display: flex !important;
+/* TABLE COLUMNS ALIGNMENT & BUTTONS */
+th.col-actions,
+td.col-actions,
+#admin-root th.col-actions,
+#admin-root td.col-actions {
+  text-align: center !important;
+  vertical-align: middle !important;
+  width: 90px !important;
+}
+
+th.col-stock,
+td.col-stock,
+#admin-root th.col-stock,
+#admin-root td.col-stock {
+  text-align: center !important;
+  vertical-align: middle !important;
+  width: 105px !important;
+}
+
+th.col-product,
+td.col-product,
+#admin-root th.col-product,
+#admin-root td.col-product {
+  text-align: left !important;
+  vertical-align: middle !important;
+}
+
+.action-btns-group {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 6px !important;
+  margin: 0 auto !important;
 }
 
 .modal,
@@ -1766,3 +1833,321 @@ tr:last-child td,
   .admin-top-actions .icon:nth-child(2), #admin-root .admin-top-actions .icon:nth-child(2) { display: none !important; }
   .admin-title, #admin-root .admin-title { font-size: 20px !important; }
 }
+
+/* 20. COMPACT PRODUCT THUMBNAIL INVENTORY TABLE */
+.product-cell,
+#admin-root .product-cell {
+  display: flex !important;
+  align-items: center !important;
+  gap: 12px !important;
+  min-width: 250px !important;
+}
+
+.product-thumb,
+#admin-root .product-thumb {
+  width: 44px !important;
+  height: 44px !important;
+  min-width: 44px !important;
+  min-height: 44px !important;
+  max-width: 44px !important;
+  max-height: 44px !important;
+  border-radius: 8px !important;
+  object-fit: cover !important;
+  background: #f7f4ed !important;
+  border: 1px solid rgba(0, 0, 0, 0.08) !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05) !important;
+  flex-shrink: 0 !important;
+  display: block !important;
+}
+
+/* 21. STYLISH EXECUTIVE ANALYTICS STUDIO (LIGHT THEME) */
+.analytics-hero-card {
+  background: #ffffff !important;
+  border: 1px solid var(--admin-border) !important;
+  border-radius: 14px !important;
+  padding: 22px 24px !important;
+  color: var(--admin-ink) !important;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.04) !important;
+  position: relative !important;
+  overflow: hidden !important;
+}
+
+.analytics-hero-card::before {
+  content: '' !important;
+  position: absolute !important;
+  top: 0 !important;
+  right: 0 !important;
+  width: 320px !important;
+  height: 220px !important;
+  background: radial-gradient(circle at top right, rgba(16, 185, 129, 0.06), transparent 70%) !important;
+  pointer-events: none !important;
+}
+
+.analytics-pill-btn {
+  background: #f7f4ed !important;
+  border: 1px solid var(--admin-border-subtle) !important;
+  color: var(--admin-muted) !important;
+  border-radius: 9999px !important;
+  padding: 5px 12px !important;
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  cursor: pointer !important;
+  transition: all 0.15s ease !important;
+}
+
+.analytics-pill-btn:hover {
+  background: #ede6d8 !important;
+  color: var(--admin-ink) !important;
+}
+
+.analytics-pill-btn.active {
+  background: var(--admin-ink) !important;
+  border-color: var(--admin-ink) !important;
+  color: #ffffff !important;
+  font-weight: 700 !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15) !important;
+}
+
+.analytics-stat-grid {
+  display: grid !important;
+  grid-template-columns: repeat(4, 1fr) !important;
+  gap: 12px !important;
+  margin-bottom: 16px !important;
+}
+
+@media (max-width: 992px) {
+  .analytics-stat-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 10px !important;
+  }
+}
+
+@media (max-width: 520px) {
+  .analytics-stat-grid {
+    grid-template-columns: 1fr 1fr !important;
+    gap: 8px !important;
+  }
+}
+
+.analytics-stat-box {
+  background: #faf8f3 !important;
+  border: 1px solid var(--admin-border-subtle) !important;
+  border-radius: 10px !important;
+  padding: 12px 14px !important;
+  min-width: 0 !important;
+  overflow: hidden !important;
+}
+
+.analytics-stat-box .stat-label {
+  font-size: 11px !important;
+  color: #64748b !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.05em !important;
+  font-weight: 600 !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+}
+
+.analytics-stat-box .stat-number {
+  font-size: 20px !important;
+  font-weight: 800 !important;
+  color: #111827 !important; /* High-contrast pure dark ink - always visible */
+  margin-top: 4px !important;
+  letter-spacing: -0.02em !important;
+  line-height: 1.25 !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+}
+
+.analytics-stat-box .stat-number.stat-peak {
+  color: #b38b43 !important; /* Luxury watchmaker gold - replaces incorrect blue */
+}
+
+@media (max-width: 640px) {
+  .analytics-stat-box {
+    padding: 10px 10px !important;
+  }
+  .analytics-stat-box .stat-number {
+    font-size: 16px !important;
+  }
+  .analytics-stat-box .stat-label {
+    font-size: 10px !important;
+  }
+}
+
+.analytics-stat-box .stat-sub {
+  font-size: 11px !important;
+  color: #64748b !important;
+  margin-top: 3px !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+}
+
+.analytics-stat-box .stat-sub.positive {
+  color: #059669 !important;
+  font-weight: 600 !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 3px !important;
+}
+
+/* 22. CUSTOMER PURCHASES DOSSIER */
+.customer-order-card {
+  background: #ffffff !important;
+  border: 1px solid var(--admin-border) !important;
+  border-radius: 10px !important;
+  overflow: hidden !important;
+  transition: box-shadow 0.15s ease, border-color 0.15s ease !important;
+}
+
+.customer-order-card:hover {
+  border-color: #d1c8b8 !important;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.04) !important;
+}
+
+.customer-order-header {
+  padding: 12px 16px !important;
+  background: #faf8f4 !important;
+  border-bottom: 1px solid var(--admin-border-subtle) !important;
+  display: flex !important;
+  justify-content: space-between !important;
+  align-items: center !important;
+  flex-wrap: wrap !important;
+  gap: 10px !important;
+}
+
+.customer-item-row {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  padding: 12px 16px !important;
+  border-bottom: 1px solid var(--admin-border-subtle) !important;
+  gap: 12px !important;
+}
+
+.customer-item-row:last-child {
+  border-bottom: 0 !important;
+}
+
+/* 23. MOBILE RESPONSIVE TABLE OPTIMIZATION (ELIMINATES HORIZONTAL SCROLL) */
+@media (max-width: 768px) {
+  /* Hide desktop-only columns on mobile */
+  .col-desktop,
+  #admin-root .col-desktop,
+  th.col-desktop,
+  td.col-desktop,
+  #admin-root th.col-desktop,
+  #admin-root td.col-desktop {
+    display: none !important;
+  }
+
+  /* Prevent table from overflowing horizontally on mobile */
+  .table-scroll,
+  #admin-root .table-scroll {
+    overflow-x: hidden !important;
+    max-width: 100% !important;
+    width: 100% !important;
+  }
+
+  .table-card table,
+  #admin-root .table-card table {
+    width: 100% !important;
+    min-width: 100% !important;
+    table-layout: fixed !important;
+  }
+
+  .table-card td,
+  .table-card th,
+  #admin-root .table-card td,
+  #admin-root .table-card th {
+    padding: 10px 6px !important;
+  }
+
+  /* Column 1: Product Cell on mobile */
+  th.col-product,
+  td.col-product,
+  #admin-root th.col-product,
+  #admin-root td.col-product {
+    width: auto !important;
+    text-align: left !important;
+    padding-left: 10px !important;
+    padding-right: 6px !important;
+  }
+
+  .product-cell,
+  #admin-root .product-cell {
+    min-width: 0 !important;
+    gap: 8px !important;
+  }
+
+  .product-name,
+  #admin-root .product-name {
+    font-size: 12px !important;
+    white-space: normal !important;
+    display: -webkit-box !important;
+    -webkit-line-clamp: 2 !important;
+    -webkit-box-orient: vertical !important;
+    overflow: hidden !important;
+    line-height: 1.25 !important;
+    color: var(--admin-ink) !important;
+    font-weight: 700 !important;
+  }
+
+  /* Column 2: Stock on mobile */
+  th.col-stock,
+  td.col-stock,
+  #admin-root th.col-stock,
+  #admin-root td.col-stock {
+    width: 86px !important;
+    min-width: 86px !important;
+    max-width: 86px !important;
+    text-align: center !important;
+    padding: 8px 4px !important;
+  }
+
+  /* Column 3: Actions on mobile - width 84px ensures both Edit and Delete fit with zero overflow */
+  th.col-actions,
+  td.col-actions,
+  #admin-root th.col-actions,
+  #admin-root td.col-actions {
+    width: 84px !important;
+    min-width: 84px !important;
+    max-width: 84px !important;
+    text-align: center !important;
+    padding: 8px 4px !important;
+  }
+
+  .action-btns-group {
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 5px !important;
+    margin: 0 auto !important;
+  }
+
+  .action-btn,
+  #admin-root .action-btn {
+    width: 29px !important;
+    height: 29px !important;
+    border-radius: 7px !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    flex-shrink: 0 !important;
+  }
+
+  .mobile-only {
+    display: block !important;
+  }
+}
+
+@media (min-width: 769px) {
+  .mobile-only {
+    display: none !important;
+  }
+}
+
+

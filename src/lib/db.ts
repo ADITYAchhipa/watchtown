@@ -19,22 +19,28 @@ let localCache: Product[] | null = null;
 let mongoSeeded = false;
 
 function readProductsFromFile(): Product[] {
-  if (localCache) return localCache;
+  if (localCache && localCache.length > 0) return localCache;
 
   ensureDbDirectory();
   if (!fs.existsSync(PRODUCTS_FILE)) {
-    fs.writeFileSync(PRODUCTS_FILE, JSON.stringify([], null, 2), 'utf8');
-    localCache = [];
+    fs.writeFileSync(PRODUCTS_FILE, JSON.stringify(SEED_PRODUCTS, null, 2), 'utf8');
+    localCache = [...SEED_PRODUCTS];
     return localCache;
   }
 
   try {
     const raw = fs.readFileSync(PRODUCTS_FILE, 'utf8');
-    localCache = JSON.parse(raw) as Product[];
+    const parsed = JSON.parse(raw) as Product[];
+    if ((!parsed || parsed.length === 0) && SEED_PRODUCTS.length > 0) {
+      fs.writeFileSync(PRODUCTS_FILE, JSON.stringify(SEED_PRODUCTS, null, 2), 'utf8');
+      localCache = [...SEED_PRODUCTS];
+      return localCache;
+    }
+    localCache = parsed;
     return localCache;
   } catch (err) {
     console.error('Failed to read products DB:', err);
-    localCache = [];
+    localCache = [...SEED_PRODUCTS];
     return localCache;
   }
 }
@@ -63,6 +69,17 @@ async function getProductsCollection() {
       await collection.createIndex({ brand: 1 });
       await collection.createIndex({ categories: 1 });
       await collection.createIndex({ price: 1 });
+
+      const count = await collection.countDocuments();
+      if (count === 0 && SEED_PRODUCTS.length > 0) {
+        console.log('[MongoDB] Seeding products collection from SEED_PRODUCTS...');
+        const cleaned = SEED_PRODUCTS.map((p) => {
+          const copy = { ...p };
+          delete (copy as any)._id;
+          return copy;
+        });
+        await collection.insertMany(cleaned as any);
+      }
     } catch (err) {
       console.error('[MongoDB] Error during products indexing:', err);
     }
