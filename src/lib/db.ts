@@ -47,7 +47,7 @@ function writeProductsToFile(products: Product[]): void {
     fs.writeFileSync(tmpFile, JSON.stringify(products, null, 2), 'utf8');
     fs.renameSync(tmpFile, PRODUCTS_FILE);
   } catch (err) {
-    try { fs.unlinkSync(tmpFile); } catch {}
+    try { fs.unlinkSync(tmpFile); } catch { }
     throw err;
   }
 }
