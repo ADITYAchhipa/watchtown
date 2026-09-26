@@ -2,6 +2,35 @@
 
 import React, { useState, useMemo, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
+import {
+  Package,
+  ShoppingBag,
+  TrendingUp,
+  Users,
+  Settings,
+  RefreshCw,
+  Download,
+  Plus,
+  Minus,
+  Search,
+  Edit2,
+  Trash2,
+  Eye,
+  ExternalLink,
+  LogOut,
+  Bell,
+  X,
+  Upload,
+  AlertTriangle,
+  CheckCircle2,
+  Clock,
+  Phone,
+  Mail,
+  MapPin,
+  ChevronLeft,
+  ChevronRight,
+  Shield,
+} from 'lucide-react';
 import { Product, InventoryStats, AuthSession, Order, OrderStats, OrderStatus } from '@/types';
 
 interface AdminDashboardClientProps {
@@ -24,12 +53,12 @@ interface CustomerProfile {
   segment: 'Active' | 'Repeat' | 'VIP' | 'New';
 }
 
-const META: Record<string, [string, string]> = {
-  inventory: ['Inventory & Products', 'Manage your watch catalog, stock levels and inventory valuation'],
-  orders: ['Orders & Fulfillment', 'Manage customer orders, tracking and delivery status'],
-  analytics: ['Analytics', 'Sales performance, popular brands and inventory insights'],
-  customers: ['Customers', 'View and manage customer profiles, activity and spend'],
-  settings: ['Settings', 'Manage store preferences, operations and access'],
+const SCREEN_META: Record<string, [string, string]> = {
+  inventory: ['Inventory & Products', 'Manage your watch catalog, stock levels and inventory valuation.'],
+  orders: ['Orders & Fulfillment', 'Track placed customer orders, fulfillment pipelines, and couriers.'],
+  analytics: ['Executive Analytics', 'Real-time sales revenue, inventory valuation, and brand mix.'],
+  customers: ['Customer Management', 'View verified buyer dossiers, order frequencies, and lifetime value.'],
+  settings: ['Store Settings & Ops', 'Configure store preferences, logistics automations, and security.'],
 };
 
 export function AdminDashboardClient({
@@ -90,7 +119,6 @@ export function AdminDashboardClient({
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [deletingProduct, setDeletingProduct] = useState<Product | null>(null);
   const [viewingOrder, setViewingOrder] = useState<Order | null>(null);
-  const [viewingCustomer, setViewingCustomer] = useState<CustomerProfile | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
   // Settings State
@@ -101,13 +129,13 @@ export function AdminDashboardClient({
   const [currency, setCurrency] = useState('INR (₹)');
   const [orderPrefix, setOrderPrefix] = useState('WT-ORD-');
   const [skuPrefix, setSkuPrefix] = useState('WT-');
-  const [storeDescription, setStoreDescription] = useState('Curated luxury and premium watches, managed with precision from catalog to doorstep.');
+  const [storeDescription, setStoreDescription] = useState('Curated luxury and premium timepieces, managed with precision from catalog to doorstep.');
   const [switchLowStock, setSwitchLowStock] = useState(true);
   const [switchOrderConfirm, setSwitchOrderConfirm] = useState(true);
   const [switchAuditLog, setSwitchAuditLog] = useState(true);
   const [switchMarketing, setSwitchMarketing] = useState(false);
 
-  // Toast helper
+  // Toast notification helper
   const showToast = useCallback((msg: string) => {
     setToastMessage(msg);
     setTimeout(() => {
@@ -119,7 +147,7 @@ export function AdminDashboardClient({
   const handleLogout = async () => {
     try {
       await fetch('/api/auth/logout', { method: 'POST' });
-      showToast('Logged out safely');
+      showToast('Signed out of super admin workspace');
       router.push('/admin/login');
       router.refresh();
     } catch {
@@ -127,7 +155,7 @@ export function AdminDashboardClient({
     }
   };
 
-  // Refresh data handler
+  // Live Refresh handler
   const refreshData = async () => {
     setLoading(true);
     try {
@@ -144,7 +172,7 @@ export function AdminDashboardClient({
       if (statsData.stats) setStats(statsData.stats);
       if (ordersData.orders) setOrders(ordersData.orders);
       if (ordersData.stats) setOrderStats(ordersData.stats);
-      showToast('Workspace refreshed successfully');
+      showToast('Executive data refreshed successfully');
     } catch {
       showToast('Failed to refresh data');
     } finally {
@@ -152,7 +180,7 @@ export function AdminDashboardClient({
     }
   };
 
-  // Quick stock change stepper
+  // Quick stock stepper
   const handleStockChange = async (productId: string | number, newStock: number) => {
     const validStock = Math.max(0, newStock);
     setProducts((prev) =>
@@ -190,10 +218,10 @@ export function AdminDashboardClient({
 
       if (isEdit) {
         setProducts((prev) => prev.map((p) => (p.id === data.product.id ? data.product : p)));
-        showToast('Watch model updated');
+        showToast('Watch model updated in catalog');
       } else {
         setProducts((prev) => [data.product, ...prev]);
-        showToast('New watch added to catalog');
+        showToast('New watch model added to catalog');
       }
 
       setIsAddModalOpen(false);
@@ -373,7 +401,7 @@ export function AdminDashboardClient({
     return filteredOrders.slice(start, start + ordersPerPage);
   }, [filteredOrders, ordersPage]);
 
-  // Customers data derived from orders & fallback
+  // Customers data derived from real orders & fallback
   const customersList = useMemo<CustomerProfile[]>(() => {
     const map = new Map<string, CustomerProfile>();
 
@@ -397,7 +425,6 @@ export function AdminDashboardClient({
       }
     });
 
-    // If order list is small or empty, supply reference demo customers from template
     if (map.size < 5) {
       const sampleCustomers: CustomerProfile[] = [
         { name: 'Rahul Sharma', email: 'rahul.sharma@gmail.com', phone: '+91 98765 43210', location: 'Mumbai, Maharashtra', totalOrders: 3, totalSpent: 2450000, segment: 'Active' },
@@ -436,11 +463,9 @@ export function AdminDashboardClient({
   const totalPhysicalUnits = stats.totalStock || products.reduce((acc, p) => acc + (p.stock ?? 0), 0);
   const inStockUnits = products.filter((p) => (p.stock ?? 0) > 4).reduce((acc, p) => acc + (p.stock ?? 0), 0);
   const lowStockUnits = products.filter((p) => (p.stock ?? 0) > 0 && (p.stock ?? 0) <= 4).reduce((acc, p) => acc + (p.stock ?? 0), 0);
-  const outOfStockUnits = products.filter((p) => (p.stock ?? 0) <= 0).length;
-
   const inStockPct = totalPhysicalUnits > 0 ? Math.round((inStockUnits / totalPhysicalUnits) * 100) : 60;
   const lowStockPct = totalPhysicalUnits > 0 ? Math.round((lowStockUnits / totalPhysicalUnits) * 100) : 18;
-  const outStockPct = 100 - inStockPct - lowStockPct;
+  const outStockPct = Math.max(0, 100 - inStockPct - lowStockPct);
 
   const brandSalesRank = useMemo(() => {
     const map = new Map<string, number>();
@@ -477,130 +502,154 @@ export function AdminDashboardClient({
   };
 
   return (
-    <div className="app">
-      {/* 1. DARK LUXURY SIDEBAR */}
-      <aside className="sidebar">
-        <div className="brand">
-          <div className="brand-name">WATCHTOWN</div>
-          <div className="brand-sub">CRM</div>
+    <div className="admin-app">
+      {/* 1. OBSIDIAN LUXURY SIDEBAR */}
+      <aside className="admin-sidebar">
+        <div className="admin-brand">
+          <div className="admin-brand-name">WATCHTOWN</div>
+          <div className="admin-brand-sub">SUPER ADMIN CRM</div>
         </div>
 
-        <div className="sidebar-label">Workspace</div>
+        <div className="admin-sidebar-label">Executive Workspace</div>
 
-        <nav className="nav">
+        <nav className="admin-nav">
           <button
-            className={`nav-btn ${activeScreen === 'inventory' ? 'active' : ''}`}
+            type="button"
+            className={`admin-nav-btn ${activeScreen === 'inventory' ? 'active' : ''}`}
             onClick={() => setActiveScreen('inventory')}
           >
-            <span className="nav-icon">▣</span>
-            Inventory &amp; Products
-            <span className="count">{products.length}</span>
+            <span className="admin-nav-icon"><Package size={17} /></span>
+            <span>Inventory &amp; Products</span>
+            <span className="admin-count-pill">{products.length}</span>
           </button>
 
           <button
-            className={`nav-btn ${activeScreen === 'orders' ? 'active' : ''}`}
+            type="button"
+            className={`admin-nav-btn ${activeScreen === 'orders' ? 'active' : ''}`}
             onClick={() => setActiveScreen('orders')}
           >
-            <span className="nav-icon">◫</span>
-            Orders &amp; Fulfillment
-            <span className="count">{orders.length}</span>
+            <span className="admin-nav-icon"><ShoppingBag size={17} /></span>
+            <span>Orders &amp; Fulfillment</span>
+            <span className="admin-count-pill">{orders.length}</span>
           </button>
 
           <button
-            className={`nav-btn ${activeScreen === 'analytics' ? 'active' : ''}`}
+            type="button"
+            className={`admin-nav-btn ${activeScreen === 'analytics' ? 'active' : ''}`}
             onClick={() => setActiveScreen('analytics')}
           >
-            <span className="nav-icon">⌁</span>
-            Analytics
+            <span className="admin-nav-icon"><TrendingUp size={17} /></span>
+            <span>Executive Analytics</span>
           </button>
 
           <button
-            className={`nav-btn ${activeScreen === 'customers' ? 'active' : ''}`}
+            type="button"
+            className={`admin-nav-btn ${activeScreen === 'customers' ? 'active' : ''}`}
             onClick={() => setActiveScreen('customers')}
           >
-            <span className="nav-icon">◌</span>
-            Customers
+            <span className="admin-nav-icon"><Users size={17} /></span>
+            <span>Customer Directory</span>
           </button>
 
           <button
-            className={`nav-btn ${activeScreen === 'settings' ? 'active' : ''}`}
+            type="button"
+            className={`admin-nav-btn ${activeScreen === 'settings' ? 'active' : ''}`}
             onClick={() => setActiveScreen('settings')}
           >
-            <span className="nav-icon">⚙</span>
-            Settings
+            <span className="admin-nav-icon"><Settings size={17} /></span>
+            <span>Store Configuration</span>
           </button>
         </nav>
 
-        <div className="side-bottom">
-          <div className="side-card">
-            <div className="eyebrow">WATCHTOWN EDIT</div>
+        <div className="admin-side-bottom">
+          <div className="admin-side-card">
+            <div className="admin-card-eyebrow">HOROLOGY SUITE</div>
             <h3>Curated time.<br />Precise control.</h3>
-            <p>One workspace for catalog, orders, customers and store operations.</p>
+            <p>Unified luxury catalog, order logistics, customer CRM &amp; analytics.</p>
           </div>
 
-          <div className="user">
-            <div className="avatar">
+          <div className="admin-user-row">
+            <div className="admin-user-avatar">
               {(initialSession.name || initialSession.email || 'A')[0].toUpperCase()}
             </div>
             <div>
-              <strong>{initialSession.name || 'Super Admin'}</strong>
-              <span>{initialSession.email || 'admin@watchtown.in'}</span>
+              <span className="admin-user-name">{initialSession.name || 'Super Administrator'}</span>
+              <span className="admin-user-email">{initialSession.email || 'admin@watchtown.in'}</span>
             </div>
           </div>
 
-          <button className="logout" onClick={handleLogout}>
-            ↪&nbsp; Logout
+          <button type="button" className="admin-logout-btn" onClick={handleLogout}>
+            <LogOut size={14} />
+            <span>Sign Out Safely</span>
           </button>
         </div>
       </aside>
 
-      {/* 2. MAIN CONTENT AREA */}
-      <main className="main">
-        {/* TOPBAR */}
-        <header className="topbar">
+      {/* 2. MAIN WORKSPACE */}
+      <main className="admin-main">
+        {/* EXECUTIVE TOPBAR */}
+        <header className="admin-topbar">
           <div>
-            <div className="kicker">ADMIN DASHBOARD</div>
-            <h1 className="title">{META[activeScreen][0]}</h1>
-            <div className="sub">{META[activeScreen][1]}</div>
+            <div className="admin-kicker">EXECUTIVE BACKOFFICE</div>
+            <h1 className="admin-title">{SCREEN_META[activeScreen][0]}</h1>
+            <div className="admin-sub">{SCREEN_META[activeScreen][1]}</div>
           </div>
 
-          <div className="top-actions">
+          <div className="admin-top-actions">
             <a
               href="/"
               target="_blank"
               rel="noreferrer"
               className="btn store"
+              title="Open storefront in new tab"
             >
-              ↗ View Storefront
+              <span>View Storefront</span>
+              <ExternalLink size={13} />
             </a>
-            <button className="icon" onClick={() => showToast('No pending notifications')} title="Notifications">
-              ♢
+
+            <button
+              type="button"
+              className="btn-icon"
+              onClick={() => showToast('All systems operational')}
+              title="Status & Notifications"
+            >
+              <Bell size={15} />
             </button>
-            <button className="icon admin-icon" onClick={() => setActiveScreen('settings')} title="Settings">
-              {(initialSession.name || initialSession.email || 'A')[0].toUpperCase()}
+
+            <button
+              type="button"
+              className="btn-icon"
+              onClick={() => setActiveScreen('settings')}
+              title="Super Admin Settings"
+            >
+              <Shield size={15} style={{ color: 'var(--admin-gold)' }} />
             </button>
           </div>
         </header>
 
-        <div className="page">
+        <div className="admin-page">
           {/* SCREEN 1: INVENTORY & PRODUCTS */}
           {activeScreen === 'inventory' && (
-            <section className="screen active">
+            <div>
               <div className="tabs">
-                <button className="tab active">
-                  Inventory &amp; Products <span className="count">{products.length}</span>
+                <button type="button" className="tab active">
+                  <Package size={15} />
+                  <span>Inventory &amp; Products</span>
+                  <span className="tab-count">{products.length}</span>
                 </button>
-                <button className="tab" onClick={() => setActiveScreen('orders')}>
-                  Orders &amp; Fulfillment <span className="count">{orders.length}</span>
+                <button type="button" className="tab" onClick={() => setActiveScreen('orders')}>
+                  <ShoppingBag size={15} />
+                  <span>Orders &amp; Fulfillment</span>
+                  <span className="tab-count">{orders.length}</span>
                 </button>
               </div>
 
-              {/* 5 Metrics Cards */}
+              {/* 5 KPI Metric Cards */}
               <div className="metrics">
                 <div className="metric">
                   <div className="metric-head">
                     <span>Total Catalog</span>
-                    <span className="metric-icon">▣</span>
+                    <span className="metric-icon"><Package size={14} /></span>
                   </div>
                   <div className="metric-value">{stats.totalProducts}</div>
                   <div className="metric-note">{stats.totalBrands} Luxury Brands</div>
@@ -612,7 +661,7 @@ export function AdminDashboardClient({
                     <span className="metric-icon">≋</span>
                   </div>
                   <div className="metric-value">{stats.totalStock}</div>
-                  <div className="metric-note">In warehouse</div>
+                  <div className="metric-note">Units in inventory</div>
                 </div>
 
                 <div className="metric">
@@ -621,24 +670,26 @@ export function AdminDashboardClient({
                     <span className="metric-icon">₹</span>
                   </div>
                   <div className="metric-value">₹{stats.totalValuation.toLocaleString('en-IN')}</div>
-                  <div className="metric-note">Total inventory value</div>
+                  <div className="metric-note">Total catalog valuation</div>
                 </div>
 
                 <div
-                  className={`metric warn clickable`}
+                  className="metric warn clickable"
                   onClick={() => setStockStatus(stockStatus === 'low_stock' ? 'all' : 'low_stock')}
+                  title="Filter low stock items"
                 >
                   <div className="metric-head">
                     <span>Low Stock Alert</span>
-                    <span className="metric-icon">!</span>
+                    <span className="metric-icon"><AlertTriangle size={14} /></span>
                   </div>
                   <div className="metric-value">{stats.lowStockCount}</div>
                   <div className="metric-note">≤ 4 units remaining</div>
                 </div>
 
                 <div
-                  className={`metric danger clickable`}
+                  className="metric danger clickable"
                   onClick={() => setStockStatus(stockStatus === 'out_of_stock' ? 'all' : 'out_of_stock')}
+                  title="Filter out of stock items"
                 >
                   <div className="metric-head">
                     <span>Out of Stock</span>
@@ -652,12 +703,9 @@ export function AdminDashboardClient({
               {/* Toolbar */}
               <div className="toolbar">
                 <div className="search-wrap">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <circle cx="11" cy="11" r="7" />
-                    <path d="m20 20-3.5-3.5" />
-                  </svg>
+                  <Search size={15} />
                   <input
-                    className="search"
+                    className="search-input"
                     placeholder="Search watches, SKU, brand..."
                     value={search}
                     onChange={(e) => {
@@ -721,24 +769,38 @@ export function AdminDashboardClient({
                   <option value="price_asc">Price: Low to High</option>
                 </select>
 
-                <button className="icon" onClick={refreshData} disabled={loading} title="Refresh">
-                  ⟳
+                <button
+                  type="button"
+                  className="btn-icon"
+                  onClick={refreshData}
+                  disabled={loading}
+                  title="Refresh Inventory"
+                >
+                  <RefreshCw size={15} className={loading ? 'animate-spin' : ''} />
                 </button>
-                <button className="btn" onClick={exportInventoryToCSV}>
-                  ⇩ Export CSV
+
+                <button type="button" className="btn" onClick={exportInventoryToCSV}>
+                  <Download size={14} />
+                  <span>Export CSV</span>
                 </button>
-                <button className="btn dark" onClick={() => setIsAddModalOpen(true)}>
-                  ＋ Add Watch
+
+                <button
+                  type="button"
+                  className="btn btn-dark"
+                  onClick={() => setIsAddModalOpen(true)}
+                >
+                  <Plus size={15} />
+                  <span>Add Watch</span>
                 </button>
               </div>
 
-              {/* Table Card */}
+              {/* Products Table Card */}
               <div className="table-card">
                 <div className="table-scroll">
                   <table>
                     <thead>
                       <tr>
-                        <th style={{ width: 34 }}>
+                        <th style={{ width: 36 }}>
                           <input
                             type="checkbox"
                             checked={selectedProductIds.size === paginatedProducts.length && paginatedProducts.length > 0}
@@ -748,16 +810,16 @@ export function AdminDashboardClient({
                         <th>Product &amp; SKU</th>
                         <th>Brand &amp; Category</th>
                         <th>Price / Regular</th>
-                        <th>Stock</th>
-                        <th>Status</th>
+                        <th style={{ textAlign: 'center' }}>Stock Adjustment</th>
+                        <th>Availability Status</th>
                         <th style={{ textAlign: 'right' }}>Actions</th>
                       </tr>
                     </thead>
                     <tbody>
                       {paginatedProducts.length === 0 ? (
                         <tr>
-                          <td colSpan={7} style={{ textAlign: 'center', padding: '36px 14px', color: '#889196' }}>
-                            No watches match your search criteria.
+                          <td colSpan={7} style={{ textAlign: 'center', padding: '40px 16px', color: 'var(--admin-muted)' }}>
+                            No watches found matching your filter criteria.
                           </td>
                         </tr>
                       ) : (
@@ -776,79 +838,99 @@ export function AdminDashboardClient({
                                   onChange={() => toggleSelectOne(p.id)}
                                 />
                               </td>
+
                               <td>
-                                <div className="product">
+                                <div className="product-cell">
                                   {p.image ? (
                                     <img
                                       src={p.image}
                                       alt={p.name}
                                       className="product-thumb"
                                       onError={(e) => {
-                                        (e.target as HTMLImageElement).style.display = 'none';
+                                        (e.target as HTMLImageElement).src = 'https://watchtown.in/wp-content/uploads/2025/11/Coach-Delancey-Rose-Gold-Black-Dial-36mm-1-600x600.jpg';
                                       }}
                                     />
                                   ) : (
-                                    <div className="watch">
-                                      <div className="dial" />
+                                    <div className="product-thumb" style={{ display: 'grid', placeItems: 'center' }}>
+                                      <Package size={20} color="var(--admin-gold)" />
                                     </div>
                                   )}
                                   <div>
                                     <div className="product-name">
                                       {p.name}
-                                      {p.badge && <span className="promo">{p.badge}</span>}
+                                      {p.badge && <span className="product-promo">{p.badge}</span>}
                                     </div>
-                                    <div className="sku">{p.sku || `WT-${p.id}`}</div>
+                                    <div className="product-sku">{p.sku || `WT-${p.id}`}</div>
                                   </div>
                                 </div>
                               </td>
 
                               <td>
-                                <div className="brand">{p.brand || 'Luxury Watch'}</div>
+                                <div className="product-brand">{p.brand || 'Luxury Watch'}</div>
                                 {p.categories && p.categories.length > 0 && (
-                                  <span className="tag">{p.categories[0]}</span>
+                                  <span className="product-tag">{p.categories[0]}</span>
                                 )}
                               </td>
 
                               <td>
-                                <div className="price">₹{p.price.toLocaleString('en-IN')}</div>
+                                <div className="product-price">₹{p.price.toLocaleString('en-IN')}</div>
                                 {p.originalPrice && p.originalPrice > p.price && (
-                                  <div className="old">₹{p.originalPrice.toLocaleString('en-IN')}</div>
+                                  <div className="product-old-price">₹{p.originalPrice.toLocaleString('en-IN')}</div>
                                 )}
                               </td>
 
-                              <td>
+                              <td style={{ textAlign: 'center' }}>
                                 <div className="stock-step">
-                                  <button onClick={() => handleStockChange(p.id, stock - 1)}>−</button>
-                                  <span>{stock}</span>
-                                  <button onClick={() => handleStockChange(p.id, stock + 1)}>+</button>
-                                </div>
-                              </td>
-
-                              <td>
-                                <div className={`status ${isOut ? 'out' : isLow ? 'low' : ''}`}>
-                                  <div className="status-top">
-                                    <i className="dot" />
-                                    {isOut ? 'Out of Stock' : isLow ? 'Low Stock' : 'In Stock'}
-                                  </div>
-                                  <div className="qty">{stock} unit{stock === 1 ? '' : 's'}</div>
-                                </div>
-                              </td>
-
-                              <td>
-                                <div className="actions" style={{ justifyContent: 'flex-end' }}>
                                   <button
-                                    className="sm"
-                                    onClick={() => setEditingProduct(p)}
-                                    title="Edit Watch"
+                                    type="button"
+                                    className="stock-step-btn"
+                                    disabled={stock <= 0}
+                                    onClick={() => handleStockChange(p.id, stock - 1)}
+                                    title="Decrease stock"
                                   >
-                                    ✎
+                                    <Minus size={13} />
+                                  </button>
+                                  <span className="stock-step-val">{stock}</span>
+                                  <button
+                                    type="button"
+                                    className="stock-step-btn"
+                                    onClick={() => handleStockChange(p.id, stock + 1)}
+                                    title="Increase stock"
+                                  >
+                                    <Plus size={13} />
+                                  </button>
+                                </div>
+                              </td>
+
+                              <td>
+                                <div className={`status-wrap ${isOut ? 'out' : isLow ? 'low' : ''}`}>
+                                  <div className="status-line">
+                                    <i className="status-dot" />
+                                    <span>{isOut ? 'Out of Stock' : isLow ? 'Low Stock' : 'In Stock'}</span>
+                                  </div>
+                                  <div className="status-subtext">
+                                    {stock} unit{stock === 1 ? '' : 's'} available
+                                  </div>
+                                </div>
+                              </td>
+
+                              <td style={{ textAlign: 'right' }}>
+                                <div style={{ display: 'inline-flex', gap: 6 }}>
+                                  <button
+                                    type="button"
+                                    className="action-btn"
+                                    onClick={() => setEditingProduct(p)}
+                                    title="Edit Watch Details"
+                                  >
+                                    <Edit2 size={13} />
                                   </button>
                                   <button
-                                    className="sm red"
+                                    type="button"
+                                    className="action-btn btn-danger"
                                     onClick={() => setDeletingProduct(p)}
-                                    title="Delete Watch"
+                                    title="Remove Watch"
                                   >
-                                    🗑
+                                    <Trash2 size={13} />
                                   </button>
                                 </div>
                               </td>
@@ -867,20 +949,22 @@ export function AdminDashboardClient({
                     {Math.min(inventoryPage * inventoryPerPage, filteredProducts.length)} of {filteredProducts.length} watches
                   </div>
 
-                  <div className="pages">
+                  <div className="pagination-pages">
                     <button
-                      className="pg"
+                      type="button"
+                      className="pg-btn"
                       disabled={inventoryPage <= 1}
                       onClick={() => setInventoryPage((p) => Math.max(1, p - 1))}
                     >
-                      ‹
+                      <ChevronLeft size={14} />
                     </button>
                     {Array.from({ length: Math.min(5, totalInventoryPages) }, (_, i) => {
                       const num = i + 1;
                       return (
                         <button
                           key={num}
-                          className={`pg ${inventoryPage === num ? 'active' : ''}`}
+                          type="button"
+                          className={`pg-btn ${inventoryPage === num ? 'active' : ''}`}
                           onClick={() => setInventoryPage(num)}
                         >
                           {num}
@@ -889,9 +973,10 @@ export function AdminDashboardClient({
                     })}
                     {totalInventoryPages > 5 && (
                       <>
-                        <span style={{ fontSize: 8, color: '#8b9297' }}>…</span>
+                        <span style={{ fontSize: 11, color: 'var(--admin-muted)', padding: '0 4px' }}>…</span>
                         <button
-                          className={`pg ${inventoryPage === totalInventoryPages ? 'active' : ''}`}
+                          type="button"
+                          className={`pg-btn ${inventoryPage === totalInventoryPages ? 'active' : ''}`}
                           onClick={() => setInventoryPage(totalInventoryPages)}
                         >
                           {totalInventoryPages}
@@ -899,14 +984,16 @@ export function AdminDashboardClient({
                       </>
                     )}
                     <button
-                      className="pg"
+                      type="button"
+                      className="pg-btn"
                       disabled={inventoryPage >= totalInventoryPages}
                       onClick={() => setInventoryPage((p) => Math.min(totalInventoryPages, p + 1))}
                     >
-                      ›
+                      <ChevronRight size={14} />
                     </button>
                     <select
-                      className="page-select"
+                      className="tool-select"
+                      style={{ height: 32, minWidth: 105, padding: '0 24px 0 10px', fontSize: 12, marginLeft: 8 }}
                       value={inventoryPerPage}
                       onChange={(e) => {
                         setInventoryPerPage(Number(e.target.value));
@@ -920,18 +1007,22 @@ export function AdminDashboardClient({
                   </div>
                 </div>
               </div>
-            </section>
+            </div>
           )}
 
           {/* SCREEN 2: ORDERS & FULFILLMENT */}
           {activeScreen === 'orders' && (
-            <section className="screen active">
+            <div>
               <div className="tabs">
-                <button className="tab" onClick={() => setActiveScreen('inventory')}>
-                  Inventory &amp; Products <span className="count">{products.length}</span>
+                <button type="button" className="tab" onClick={() => setActiveScreen('inventory')}>
+                  <Package size={15} />
+                  <span>Inventory &amp; Products</span>
+                  <span className="tab-count">{products.length}</span>
                 </button>
-                <button className="tab active">
-                  Orders &amp; Fulfillment <span className="count">{orders.length}</span>
+                <button type="button" className="tab active">
+                  <ShoppingBag size={15} />
+                  <span>Orders &amp; Fulfillment</span>
+                  <span className="tab-count">{orders.length}</span>
                 </button>
               </div>
 
@@ -943,55 +1034,52 @@ export function AdminDashboardClient({
                     <span className="metric-icon">₹</span>
                   </div>
                   <div className="metric-value">₹{orderStats.totalRevenue.toLocaleString('en-IN')}</div>
-                  <div className="metric-note">Gross placed-order value</div>
+                  <div className="metric-note">Gross placed-order sales</div>
                 </div>
 
                 <div className="metric blue">
                   <div className="metric-head">
                     <span>Total Orders</span>
-                    <span className="metric-icon">#</span>
+                    <span className="metric-icon"><ShoppingBag size={14} /></span>
                   </div>
                   <div className="metric-value">{orderStats.totalOrders}</div>
-                  <div className="metric-note">Across the store</div>
+                  <div className="metric-note">Customer order count</div>
                 </div>
 
                 <div className="metric warn">
                   <div className="metric-head">
                     <span>Pending Verification</span>
-                    <span className="metric-icon">!</span>
+                    <span className="metric-icon"><Clock size={14} /></span>
                   </div>
                   <div className="metric-value">{orderStats.pendingCount}</div>
-                  <div className="metric-note">Awaiting customer calls</div>
+                  <div className="metric-note">Awaiting confirmation</div>
                 </div>
 
                 <div className="metric purple">
                   <div className="metric-head">
                     <span>In Transit</span>
-                    <span className="metric-icon">↗</span>
+                    <span className="metric-icon"><TrendingUp size={14} /></span>
                   </div>
                   <div className="metric-value">{orderStats.dispatchedCount}</div>
-                  <div className="metric-note">Out for delivery</div>
+                  <div className="metric-note">With courier partner</div>
                 </div>
 
                 <div className="metric good">
                   <div className="metric-head">
                     <span>Delivered &amp; Paid</span>
-                    <span className="metric-icon">✓</span>
+                    <span className="metric-icon"><CheckCircle2 size={14} /></span>
                   </div>
                   <div className="metric-value">{orderStats.deliveredCount}</div>
-                  <div className="metric-note">Completed orders</div>
+                  <div className="metric-note">Completed shipments</div>
                 </div>
               </div>
 
               {/* Orders Toolbar */}
               <div className="toolbar">
                 <div className="search-wrap">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <circle cx="11" cy="11" r="7" />
-                    <path d="m20 20-3.5-3.5" />
-                  </svg>
+                  <Search size={15} />
                   <input
-                    className="search"
+                    className="search-input"
                     placeholder="Search Order ID, customer, phone, city..."
                     value={orderSearch}
                     onChange={(e) => {
@@ -1009,7 +1097,7 @@ export function AdminDashboardClient({
                     setOrdersPage(1);
                   }}
                 >
-                  <option value="all">All Status</option>
+                  <option value="all">All Fulfillment Status</option>
                   <option value="pending">Pending</option>
                   <option value="confirmed">Confirmed</option>
                   <option value="dispatched">Dispatched</option>
@@ -1017,15 +1105,23 @@ export function AdminDashboardClient({
                   <option value="cancelled">Cancelled</option>
                 </select>
 
-                <button className="icon" onClick={refreshData} disabled={loading} title="Refresh">
-                  ⟳
+                <button
+                  type="button"
+                  className="btn-icon"
+                  onClick={refreshData}
+                  disabled={loading}
+                  title="Refresh Orders"
+                >
+                  <RefreshCw size={15} className={loading ? 'animate-spin' : ''} />
                 </button>
-                <button className="btn" onClick={exportOrdersToCSV}>
-                  ⇩ Export CSV
+
+                <button type="button" className="btn" onClick={exportOrdersToCSV}>
+                  <Download size={14} />
+                  <span>Export CSV</span>
                 </button>
               </div>
 
-              {/* Orders Table */}
+              {/* Orders Table Card */}
               <div className="table-card">
                 <div className="table-scroll">
                   <table>
@@ -1043,16 +1139,16 @@ export function AdminDashboardClient({
                     <tbody>
                       {paginatedOrders.length === 0 ? (
                         <tr>
-                          <td colSpan={7} style={{ textAlign: 'center', padding: '36px 14px', color: '#889196' }}>
-                            No customer orders found matching filters.
+                          <td colSpan={7} style={{ textAlign: 'center', padding: '40px 16px', color: 'var(--admin-muted)' }}>
+                            No customer orders found matching your filters.
                           </td>
                         </tr>
                       ) : (
                         paginatedOrders.map((order) => (
                           <tr key={order.id}>
                             <td>
-                              <strong>{order.orderNumber}</strong>
-                              <div className="sku">
+                              <strong style={{ color: 'var(--admin-ink)', fontSize: 13 }}>{order.orderNumber}</strong>
+                              <div className="product-sku">
                                 {new Date(order.createdAt).toLocaleString('en-IN', {
                                   month: 'short',
                                   day: 'numeric',
@@ -1064,8 +1160,8 @@ export function AdminDashboardClient({
                             </td>
 
                             <td>
-                              <strong>{order.customer.fullName}</strong>
-                              <div className="sku">
+                              <strong style={{ color: 'var(--admin-ink)' }}>{order.customer.fullName}</strong>
+                              <div className="product-sku">
                                 {order.customer.phone}
                                 <br />
                                 {order.customer.city}, {order.customer.state}
@@ -1073,25 +1169,28 @@ export function AdminDashboardClient({
                             </td>
 
                             <td>
-                              {order.items.map((it, idx) => (
-                                <div key={idx} style={{ fontSize: 9, whiteSpace: 'nowrap' }}>
-                                  {it.quantity}× {it.name}
-                                </div>
-                              ))}
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                                {order.items.map((it, idx) => (
+                                  <div key={idx} style={{ fontSize: 12 }}>
+                                    <strong style={{ color: 'var(--admin-gold)' }}>{it.quantity}×</strong> {it.name}
+                                  </div>
+                                ))}
+                              </div>
                             </td>
 
                             <td>
-                              <div className="price">₹{order.total.toLocaleString('en-IN')}</div>
-                              <div className="payment">
+                              <div className="product-price">₹{order.total.toLocaleString('en-IN')}</div>
+                              <div style={{ marginTop: 3 }}>
                                 <span className={`pill ${order.paymentMethod === 'cod' ? 'pending' : 'confirmed'}`}>
-                                  {order.paymentMethod === 'cod' ? 'COD' : 'UPI Online'}
+                                  {order.paymentMethod === 'cod' ? 'Cash on Delivery' : 'UPI Online'}
                                 </span>
                               </div>
                             </td>
 
                             <td>
                               <select
-                                className="order-status"
+                                className="tool-select"
+                                style={{ height: 32, fontSize: 12, minWidth: 125, padding: '0 24px 0 10px' }}
                                 value={order.status}
                                 onChange={(e) => handleOrderStatusChange(order.id, e.target.value as OrderStatus)}
                               >
@@ -1103,12 +1202,13 @@ export function AdminDashboardClient({
                               </select>
                             </td>
 
-                            <td className="courier">
+                            <td style={{ fontSize: 12, color: 'var(--admin-muted)' }}>
                               {order.trackingNumber ? (
                                 <>
-                                  {order.courier || 'Courier'}
-                                  <br />
-                                  AWB: {order.trackingNumber}
+                                  <strong style={{ color: 'var(--admin-ink)' }}>{order.courier || 'Express'}</strong>
+                                  <div style={{ fontFamily: 'monospace', fontSize: 11, color: 'var(--admin-blue)' }}>
+                                    AWB: {order.trackingNumber}
+                                  </div>
                                 </>
                               ) : (
                                 '—'
@@ -1117,11 +1217,13 @@ export function AdminDashboardClient({
 
                             <td style={{ textAlign: 'right' }}>
                               <button
-                                className="sm"
+                                type="button"
+                                className="btn"
+                                style={{ height: 32, padding: '0 12px', fontSize: 12 }}
                                 onClick={() => setViewingOrder(order)}
-                                title="View Order Dossier"
                               >
-                                View
+                                <Eye size={13} />
+                                <span>Dossier</span>
                               </button>
                             </td>
                           </tr>
@@ -1138,13 +1240,14 @@ export function AdminDashboardClient({
                     {Math.min(ordersPage * ordersPerPage, filteredOrders.length)} of {filteredOrders.length} orders
                   </div>
 
-                  <div className="pages">
+                  <div className="pagination-pages">
                     {Array.from({ length: Math.min(5, totalOrderPages) }, (_, i) => {
                       const num = i + 1;
                       return (
                         <button
                           key={num}
-                          className={`pg ${ordersPage === num ? 'active' : ''}`}
+                          type="button"
+                          className={`pg-btn ${ordersPage === num ? 'active' : ''}`}
                           onClick={() => setOrdersPage(num)}
                         >
                           {num}
@@ -1154,142 +1257,146 @@ export function AdminDashboardClient({
                   </div>
                 </div>
               </div>
-            </section>
+            </div>
           )}
 
           {/* SCREEN 3: ANALYTICS */}
           {activeScreen === 'analytics' && (
-            <section className="screen active">
+            <div>
               <div className="metrics">
                 <div className="metric good">
                   <div className="metric-head">
-                    <span>Net Sales</span>
+                    <span>Net Gross Revenue</span>
                     <span className="metric-icon">₹</span>
                   </div>
                   <div className="metric-value">₹{orderStats.totalRevenue.toLocaleString('en-IN')}</div>
-                  <div className="metric-note">This month · +12%</div>
+                  <div className="metric-note">Gross sales · Current Year 2026</div>
                 </div>
 
                 <div className="metric blue">
                   <div className="metric-head">
                     <span>Total Orders</span>
-                    <span className="metric-icon">#</span>
+                    <span className="metric-icon"><ShoppingBag size={14} /></span>
                   </div>
                   <div className="metric-value">{orderStats.totalOrders}</div>
-                  <div className="metric-note">+8% vs previous</div>
+                  <div className="metric-note">Placed customer orders</div>
                 </div>
 
                 <div className="metric">
                   <div className="metric-head">
-                    <span>Average Order</span>
+                    <span>Average Order Value</span>
                     <span className="metric-icon">₹</span>
                   </div>
                   <div className="metric-value">
                     ₹{orderStats.totalOrders > 0 ? Math.round(orderStats.totalRevenue / orderStats.totalOrders).toLocaleString('en-IN') : '29,032'}
                   </div>
-                  <div className="metric-note">Average order value</div>
+                  <div className="metric-note">AOV per timepiece shipment</div>
                 </div>
 
                 <div className="metric good">
                   <div className="metric-head">
                     <span>Completed Orders</span>
-                    <span className="metric-icon">✓</span>
+                    <span className="metric-icon"><CheckCircle2 size={14} /></span>
                   </div>
                   <div className="metric-value">{orderStats.deliveredCount}</div>
-                  <div className="metric-note">+18% this period</div>
+                  <div className="metric-note">Successfully delivered &amp; paid</div>
                 </div>
 
                 <div className="metric warn">
                   <div className="metric-head">
                     <span>Low-stock Exposure</span>
-                    <span className="metric-icon">!</span>
+                    <span className="metric-icon"><AlertTriangle size={14} /></span>
                   </div>
                   <div className="metric-value">{stats.lowStockCount + stats.outOfStockCount}</div>
-                  <div className="metric-note">{stats.lowStockCount} low · {stats.outOfStockCount} out</div>
+                  <div className="metric-note">{stats.lowStockCount} low · {stats.outOfStockCount} out of stock</div>
                 </div>
               </div>
 
               {/* Analytics Top Grid */}
               <div className="analytics-grid">
-                {/* Sales Chart Panel */}
                 <div className="panel">
                   <div className="panel-head">
                     <div>
-                      <div className="panel-title">Sales Revenue</div>
-                      <div className="panel-sub">Gross sales · Current Year 2026</div>
+                      <div className="panel-title">Sales Revenue Velocity</div>
+                      <div className="panel-sub">Continuous revenue curve &amp; fulfillment trajectory</div>
                     </div>
-                    <select className="page-select">
+                    <select className="tool-select" style={{ height: 32, minWidth: 120, fontSize: 12 }}>
                       <option>Last 30 Days</option>
                       <option>Last 90 Days</option>
                     </select>
                   </div>
 
-                  <div className="chart">
-                    <svg viewBox="0 0 760 245" preserveAspectRatio="none">
+                  <div style={{ height: 230, marginTop: 12 }}>
+                    <svg viewBox="0 0 760 230" preserveAspectRatio="none" style={{ width: '100%', height: '100%' }}>
                       <g stroke="#ece7df" strokeWidth="1">
                         <line x1="40" y1="25" x2="744" y2="25" />
-                        <line x1="40" y1="82" x2="744" y2="82" />
-                        <line x1="40" y1="139" x2="744" y2="139" />
-                        <line x1="40" y1="196" x2="744" y2="196" />
+                        <line x1="40" y1="80" x2="744" y2="80" />
+                        <line x1="40" y1="135" x2="744" y2="135" />
+                        <line x1="40" y1="190" x2="744" y2="190" />
                       </g>
                       <path
-                        d="M40,178 L86,165 L132,171 L178,145 L224,158 L270,120 L316,141 L362,110 L408,124 L454,88 L500,100 L546,68 L592,86 L638,54 L684,69 L730,38 L730,204 L40,204 Z"
-                        fill="#b9903a"
-                        fillOpacity=".12"
+                        d="M40,170 L86,155 L132,160 L178,135 L224,148 L270,110 L316,130 L362,100 L408,114 L454,78 L500,90 L546,58 L592,76 L638,44 L684,59 L730,28 L730,195 L40,195 Z"
+                        fill="var(--admin-gold)"
+                        fillOpacity="0.12"
                       />
                       <polyline
-                        points="40,178 86,165 132,171 178,145 224,158 270,120 316,141 362,110 408,124 454,88 500,100 546,68 592,86 638,54 684,69 730,38"
+                        points="40,170 86,155 132,160 178,135 224,148 270,110 316,130 362,100 408,114 454,78 500,90 546,58 592,76 638,44 684,59 730,28"
                         fill="none"
-                        stroke="#b9903a"
+                        stroke="var(--admin-gold)"
                         strokeWidth="3"
                         strokeLinecap="round"
                         strokeLinejoin="round"
                       />
                       <polyline
-                        points="40,194 86,185 132,188 178,177 224,184 270,165 316,171 362,157 408,167 454,151 500,158 546,145 592,150 638,139 684,143 730,128"
+                        points="40,185 86,175 132,178 178,165 224,174 270,155 316,160 362,145 408,155 454,140 500,148 546,135 592,140 638,128 684,132 730,118"
                         fill="none"
-                        stroke="#326df5"
+                        stroke="var(--admin-blue)"
                         strokeWidth="2"
                         strokeLinecap="round"
                         strokeLinejoin="round"
                       />
-                      <g fill="#858d93" fontSize="9">
-                        <text x="40" y="225">Sep 1</text>
-                        <text x="162" y="225">Sep 7</text>
-                        <text x="288" y="225">Sep 14</text>
-                        <text x="415" y="225">Sep 21</text>
-                        <text x="540" y="225">Sep 26</text>
-                        <text x="675" y="225">Sep 30</text>
+                      <g fill="#858d93" fontSize="10">
+                        <text x="40" y="215">Sep 1</text>
+                        <text x="162" y="215">Sep 7</text>
+                        <text x="288" y="215">Sep 14</text>
+                        <text x="415" y="215">Sep 21</text>
+                        <text x="540" y="215">Sep 26</text>
+                        <text x="675" y="215">Sep 30</text>
                       </g>
                     </svg>
                   </div>
 
-                  <div className="legend">
-                    <span><i></i>Revenue</span>
-                    <span><i className="blue"></i>Order trend</span>
+                  <div style={{ display: 'flex', gap: 20, fontSize: 12, color: 'var(--admin-muted)', marginTop: 4 }}>
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                      <i style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--admin-gold)', display: 'inline-block' }} />
+                      Revenue Volume
+                    </span>
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                      <i style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--admin-blue)', display: 'inline-block' }} />
+                      Order Trajectory
+                    </span>
                   </div>
                 </div>
 
-                {/* Orders by Status Donut */}
                 <div className="panel">
                   <div className="panel-head">
                     <div>
-                      <div className="panel-title">Orders by Status</div>
-                      <div className="panel-sub">Current fulfillment mix</div>
+                      <div className="panel-title">Fulfillment Pipeline Mix</div>
+                      <div className="panel-sub">Orders breakdown by active delivery status</div>
                     </div>
                   </div>
 
-                  <div className="donut-wrap">
-                    <div className="donut">
-                      <svg viewBox="0 0 160 160">
-                        <circle cx="80" cy="80" r="55" fill="none" stroke="#eeeae2" strokeWidth="19" />
+                  <div style={{ display: 'grid', gridTemplateColumns: '150px 1fr', alignItems: 'center', gap: 16, marginTop: 16 }}>
+                    <div style={{ width: 140, height: 140, position: 'relative' }}>
+                      <svg viewBox="0 0 160 160" style={{ width: '100%', height: '100%' }}>
+                        <circle cx="80" cy="80" r="55" fill="none" stroke="#eeeae2" strokeWidth="18" />
                         <circle
                           cx="80"
                           cy="80"
                           r="55"
                           fill="none"
-                          stroke="#1d9b70"
-                          strokeWidth="19"
+                          stroke="var(--admin-green)"
+                          strokeWidth="18"
                           strokeLinecap="round"
                           strokeDasharray="218 346"
                           transform="rotate(-90 80 80)"
@@ -1299,8 +1406,8 @@ export function AdminDashboardClient({
                           cy="80"
                           r="55"
                           fill="none"
-                          stroke="#cb8b1a"
-                          strokeWidth="19"
+                          stroke="var(--admin-amber)"
+                          strokeWidth="18"
                           strokeLinecap="round"
                           strokeDasharray="50 346"
                           strokeDashoffset="-224"
@@ -1311,8 +1418,8 @@ export function AdminDashboardClient({
                           cy="80"
                           r="55"
                           fill="none"
-                          stroke="#7a5bc4"
-                          strokeWidth="19"
+                          stroke="var(--admin-purple)"
+                          strokeWidth="18"
                           strokeLinecap="round"
                           strokeDasharray="65 346"
                           strokeDashoffset="-280"
@@ -1323,38 +1430,38 @@ export function AdminDashboardClient({
                           cy="80"
                           r="55"
                           fill="none"
-                          stroke="#326df5"
-                          strokeWidth="19"
+                          stroke="var(--admin-blue)"
+                          strokeWidth="18"
                           strokeLinecap="round"
                           strokeDasharray="22 346"
                           strokeDashoffset="-350"
                           transform="rotate(-90 80 80)"
                         />
                       </svg>
-                      <div className="donut-center">
+                      <div style={{ position: 'absolute', inset: 0, display: 'grid', placeItems: 'center', textAlign: 'center' }}>
                         <div>
-                          <strong>{orderStats.totalOrders}</strong>
-                          <span>Total</span>
+                          <strong style={{ fontSize: 22, color: 'var(--admin-ink)' }}>{orderStats.totalOrders}</strong>
+                          <span style={{ display: 'block', fontSize: 10, color: 'var(--admin-muted)', textTransform: 'uppercase' }}>Orders</span>
                         </div>
                       </div>
                     </div>
 
-                    <div className="stats">
-                      <div className="stat">
-                        <span style={{ color: '#cb8b1a' }}>● Pending</span>
-                        <b>{orderStats.pendingCount} · 14%</b>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8, fontSize: 12 }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <span style={{ color: 'var(--admin-amber)', fontWeight: 500 }}>● Pending</span>
+                        <b>{orderStats.pendingCount} ({orderStats.totalOrders ? Math.round((orderStats.pendingCount / orderStats.totalOrders) * 100) : 0}%)</b>
                       </div>
-                      <div className="stat">
-                        <span style={{ color: '#326df5' }}>● Confirmed</span>
-                        <b>{orderStats.confirmedCount} · 9%</b>
+                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <span style={{ color: 'var(--admin-blue)', fontWeight: 500 }}>● Confirmed</span>
+                        <b>{orderStats.confirmedCount} ({orderStats.totalOrders ? Math.round((orderStats.confirmedCount / orderStats.totalOrders) * 100) : 0}%)</b>
                       </div>
-                      <div className="stat">
-                        <span style={{ color: '#7a5bc4' }}>● Dispatched</span>
-                        <b>{orderStats.dispatchedCount} · 19%</b>
+                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <span style={{ color: 'var(--admin-purple)', fontWeight: 500 }}>● Dispatched</span>
+                        <b>{orderStats.dispatchedCount} ({orderStats.totalOrders ? Math.round((orderStats.dispatchedCount / orderStats.totalOrders) * 100) : 0}%)</b>
                       </div>
-                      <div className="stat">
-                        <span style={{ color: '#1d9b70' }}>● Delivered</span>
-                        <b>{orderStats.deliveredCount} · 63%</b>
+                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <span style={{ color: 'var(--admin-green)', fontWeight: 500 }}>● Delivered</span>
+                        <b>{orderStats.deliveredCount} ({orderStats.totalOrders ? Math.round((orderStats.deliveredCount / orderStats.totalOrders) * 100) : 0}%)</b>
                       </div>
                     </div>
                   </div>
@@ -1371,18 +1478,18 @@ export function AdminDashboardClient({
                     </div>
                   </div>
 
-                  <div className="rank-list">
+                  <div style={{ marginTop: 8 }}>
                     {brandSalesRank.map((b) => (
-                      <div className="rank" key={b.name}>
-                        <div className="rank-left">
-                          <div className="rank-no">{b.rank}</div>
+                      <div className="rank-row" key={b.name}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                          <div className="rank-num">{b.rank}</div>
                           <div>
-                            <div className="rank-name">{b.name}</div>
-                            <div className="rank-meta">{b.valueFormatted}</div>
+                            <div style={{ fontWeight: 600, fontSize: 13, color: 'var(--admin-ink)' }}>{b.name}</div>
+                            <div style={{ fontSize: 11, color: 'var(--admin-muted)' }}>{b.valueFormatted}</div>
                           </div>
                         </div>
-                        <div className="progress">
-                          <span style={{ width: `${b.pct}%` }} />
+                        <div className="rank-progress-bar">
+                          <span className="rank-progress-fill" style={{ width: `${b.pct}%` }} />
                         </div>
                       </div>
                     ))}
@@ -1392,31 +1499,33 @@ export function AdminDashboardClient({
                 <div className="panel">
                   <div className="panel-head">
                     <div>
-                      <div className="panel-title">Inventory Mix</div>
-                      <div className="panel-sub">{totalPhysicalUnits} physical units</div>
+                      <div className="panel-title">Inventory Stock Mix</div>
+                      <div className="panel-sub">{totalPhysicalUnits} physical units in warehouse</div>
                     </div>
                   </div>
 
-                  <div style={{ fontSize: 29, fontWeight: 700, marginTop: 10 }}>{totalPhysicalUnits}</div>
-                  <div className="panel-sub">Units currently on shelf</div>
+                  <div style={{ fontSize: 32, fontWeight: 700, marginTop: 8, color: 'var(--admin-ink)' }}>
+                    {totalPhysicalUnits}
+                  </div>
+                  <div style={{ fontSize: 12, color: 'var(--admin-muted)' }}>Units currently on shelf</div>
 
-                  <div className="mini-bar">
-                    <span style={{ width: `${inStockPct}%` }} />
-                    <span style={{ width: `${lowStockPct}%` }} />
-                    <span style={{ width: `${outStockPct}%` }} />
+                  <div style={{ height: 8, background: '#eeeae0', borderRadius: 9999, overflow: 'hidden', marginTop: 16, display: 'flex' }}>
+                    <span style={{ width: `${inStockPct}%`, background: 'var(--admin-green)' }} />
+                    <span style={{ width: `${lowStockPct}%`, background: 'var(--admin-amber)' }} />
+                    <span style={{ width: `${outStockPct}%`, background: 'var(--admin-red)' }} />
                   </div>
 
-                  <div className="stats" style={{ marginTop: 12 }}>
-                    <div className="stat">
-                      <span>In Stock</span>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 16, fontSize: 12 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <span style={{ color: 'var(--admin-green)', fontWeight: 500 }}>In Stock Units</span>
                       <b>{inStockPct}%</b>
                     </div>
-                    <div className="stat">
-                      <span>Low Stock</span>
+                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <span style={{ color: 'var(--admin-amber)', fontWeight: 500 }}>Low Stock Units</span>
                       <b>{lowStockPct}%</b>
                     </div>
-                    <div className="stat">
-                      <span>Out of Stock</span>
+                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <span style={{ color: 'var(--admin-red)', fontWeight: 500 }}>Out of Stock</span>
                       <b>{outStockPct}%</b>
                     </div>
                   </div>
@@ -1425,64 +1534,77 @@ export function AdminDashboardClient({
                 <div className="panel">
                   <div className="panel-head">
                     <div>
-                      <div className="panel-title">Customer Behaviour</div>
-                      <div className="panel-sub">Purchase quality signals</div>
+                      <div className="panel-title">Customer Retention Signals</div>
+                      <div className="panel-sub">Repeat purchase &amp; loyalty ratios</div>
                     </div>
                   </div>
 
-                  <div className="stats" style={{ marginTop: 12 }}>
-                    <div className="stat">
-                      <span>Repeat customers</span>
-                      <b>38%</b>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginTop: 14, fontSize: 13 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: 8, borderBottom: '1px solid var(--admin-border-subtle)' }}>
+                      <span style={{ color: 'var(--admin-muted)' }}>Repeat Collectors</span>
+                      <strong style={{ color: 'var(--admin-ink)' }}>38%</strong>
                     </div>
-                    <div className="stat">
-                      <span>New customers</span>
-                      <b>62%</b>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: 8, borderBottom: '1px solid var(--admin-border-subtle)' }}>
+                      <span style={{ color: 'var(--admin-muted)' }}>First-time Buyers</span>
+                      <strong style={{ color: 'var(--admin-ink)' }}>62%</strong>
                     </div>
-                    <div className="stat">
-                      <span>Average order</span>
-                      <b>₹29,032</b>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: 8, borderBottom: '1px solid var(--admin-border-subtle)' }}>
+                      <span style={{ color: 'var(--admin-muted)' }}>Avg Order Ticket</span>
+                      <strong style={{ color: 'var(--admin-gold)' }}>₹29,032</strong>
                     </div>
-                    <div className="stat">
-                      <span>Inquiry → order</span>
-                      <b>8.7%</b>
+                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <span style={{ color: 'var(--admin-muted)' }}>Inquiry → Order Conversion</span>
+                      <strong style={{ color: 'var(--admin-green)' }}>8.7%</strong>
                     </div>
                   </div>
                 </div>
               </div>
-            </section>
+            </div>
           )}
 
           {/* SCREEN 4: CUSTOMERS */}
           {activeScreen === 'customers' && (
-            <section className="screen active">
-              <div className="customer-metrics">
-                <div className="customer-metric">
-                  <div className="big">{customersList.length.toLocaleString('en-IN')}</div>
-                  <div className="label">Total registered customers</div>
+            <div>
+              <div className="metrics" style={{ gridTemplateColumns: 'repeat(4, 1fr)' }}>
+                <div className="metric">
+                  <div className="metric-head">
+                    <span>Total Customers</span>
+                    <span className="metric-icon"><Users size={14} /></span>
+                  </div>
+                  <div className="metric-value">{customersList.length.toLocaleString('en-IN')}</div>
+                  <div className="metric-note">Registered collectors</div>
                 </div>
-                <div className="customer-metric">
-                  <div className="big">{Math.max(1, Math.round(customersList.length * 0.42))}</div>
-                  <div className="label">Active buyers</div>
+                <div className="metric good">
+                  <div className="metric-head">
+                    <span>Active Buyers</span>
+                    <span className="metric-icon"><CheckCircle2 size={14} /></span>
+                  </div>
+                  <div className="metric-value">{Math.max(1, Math.round(customersList.length * 0.42))}</div>
+                  <div className="metric-note">Frequent purchasers</div>
                 </div>
-                <div className="customer-metric">
-                  <div className="big">{Math.max(1, Math.round(customersList.length * 0.12))}</div>
-                  <div className="label">VIP collectors</div>
+                <div className="metric warn">
+                  <div className="metric-head">
+                    <span>VIP Collectors</span>
+                    <span className="metric-icon">★</span>
+                  </div>
+                  <div className="metric-value">{Math.max(1, Math.round(customersList.length * 0.12))}</div>
+                  <div className="metric-note">High ticket volume</div>
                 </div>
-                <div className="customer-metric">
-                  <div className="big">38%</div>
-                  <div className="label">Repeat acquisition rate</div>
+                <div className="metric blue">
+                  <div className="metric-head">
+                    <span>Repeat Rate</span>
+                    <span className="metric-icon"><TrendingUp size={14} /></span>
+                  </div>
+                  <div className="metric-value">38%</div>
+                  <div className="metric-note">Multi-order buyers</div>
                 </div>
               </div>
 
               <div className="toolbar">
                 <div className="search-wrap">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <circle cx="11" cy="11" r="7" />
-                    <path d="m20 20-3.5-3.5" />
-                  </svg>
+                  <Search size={15} />
                   <input
-                    className="search"
+                    className="search-input"
                     placeholder="Search by name, email, phone, city..."
                     value={customerSearch}
                     onChange={(e) => setCustomerSearch(e.target.value)}
@@ -1494,10 +1616,11 @@ export function AdminDashboardClient({
                   value={customerSegmentFilter}
                   onChange={(e) => setCustomerSegmentFilter(e.target.value as any)}
                 >
-                  <option value="all">All Customers</option>
+                  <option value="all">All Buyer Segments</option>
                   <option value="VIP">VIP</option>
                   <option value="New">New</option>
                   <option value="Repeat">Repeat</option>
+                  <option value="Active">Active</option>
                 </select>
 
                 <select
@@ -1511,6 +1634,7 @@ export function AdminDashboardClient({
                 </select>
 
                 <button
+                  type="button"
                   className="btn"
                   onClick={() => {
                     const headers = ['Name', 'Email', 'Phone', 'Location', 'Orders', 'Total Spent', 'Segment'];
@@ -1534,7 +1658,8 @@ export function AdminDashboardClient({
                     showToast('Customer CSV exported');
                   }}
                 >
-                  ⇩ Export Customers
+                  <Download size={14} />
+                  <span>Export Customers</span>
                 </button>
               </div>
 
@@ -1543,12 +1668,12 @@ export function AdminDashboardClient({
                   <table>
                     <thead>
                       <tr>
-                        <th>Customer</th>
-                        <th>Contact</th>
+                        <th>Customer Dossier</th>
+                        <th>Contact Number</th>
                         <th>Location</th>
                         <th>Total Orders</th>
-                        <th>Total Spent</th>
-                        <th>Segment</th>
+                        <th>Total Spend</th>
+                        <th>Segment Badge</th>
                         <th style={{ textAlign: 'right' }}>Actions</th>
                       </tr>
                     </thead>
@@ -1556,22 +1681,24 @@ export function AdminDashboardClient({
                       {customersList.map((c, i) => (
                         <tr key={i}>
                           <td>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                              <div className="customer-avatar">
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                              <div className="admin-user-avatar" style={{ background: '#f2ece0' }}>
                                 {c.name.split(' ').map((n) => n[0]).join('').slice(0, 2).toUpperCase()}
                               </div>
                               <div>
-                                <strong>{c.name}</strong>
-                                <div className="sku">{c.email}</div>
+                                <strong style={{ color: 'var(--admin-ink)', fontSize: 13 }}>{c.name}</strong>
+                                <div className="product-sku">{c.email}</div>
                               </div>
                             </div>
                           </td>
 
-                          <td>{c.phone}</td>
-                          <td>{c.location}</td>
-                          <td>{c.totalOrders}</td>
+                          <td style={{ fontSize: 13 }}>{c.phone}</td>
+                          <td style={{ fontSize: 13 }}>{c.location}</td>
                           <td>
-                            <div className="price">₹{c.totalSpent.toLocaleString('en-IN')}</div>
+                            <strong style={{ fontSize: 13 }}>{c.totalOrders}</strong>
+                          </td>
+                          <td>
+                            <div className="product-price">₹{c.totalSpent.toLocaleString('en-IN')}</div>
                           </td>
                           <td>
                             <span
@@ -1588,13 +1715,13 @@ export function AdminDashboardClient({
                           </td>
                           <td style={{ textAlign: 'right' }}>
                             <button
-                              className="sm"
-                              onClick={() => {
-                                setViewingCustomer(c);
-                                showToast(`Viewing profile for ${c.name}`);
-                              }}
+                              type="button"
+                              className="btn"
+                              style={{ height: 30, padding: '0 10px', fontSize: 12 }}
+                              onClick={() => showToast(`Viewing customer record for ${c.name}`)}
                             >
-                              View
+                              <Eye size={12} />
+                              <span>View</span>
                             </button>
                           </td>
                         </tr>
@@ -1605,65 +1732,70 @@ export function AdminDashboardClient({
 
                 <div className="pagination">
                   <div className="pagination-text">Showing 1–{customersList.length} of {customersList.length} customers</div>
-                  <div className="pages">
-                    <button className="pg active">1</button>
+                  <div className="pagination-pages">
+                    <button type="button" className="pg-btn active">1</button>
                   </div>
                 </div>
               </div>
-            </section>
+            </div>
           )}
 
           {/* SCREEN 5: SETTINGS */}
           {activeScreen === 'settings' && (
-            <section className="screen active">
+            <div>
               <div className="settings-grid">
                 <div className="settings-nav">
                   <button
-                    className={settingsTab === 'general' ? 'active' : ''}
+                    type="button"
+                    className={`settings-nav-btn ${settingsTab === 'general' ? 'active' : ''}`}
                     onClick={() => setSettingsTab('general')}
                   >
-                    General
+                    General Configuration
                   </button>
                   <button
-                    className={settingsTab === 'store' ? 'active' : ''}
+                    type="button"
+                    className={`settings-nav-btn ${settingsTab === 'store' ? 'active' : ''}`}
                     onClick={() => setSettingsTab('store')}
                   >
-                    Store Configuration
+                    Store &amp; Currencies
                   </button>
                   <button
-                    className={settingsTab === 'notifications' ? 'active' : ''}
+                    type="button"
+                    className={`settings-nav-btn ${settingsTab === 'notifications' ? 'active' : ''}`}
                     onClick={() => setSettingsTab('notifications')}
                   >
-                    Notifications
+                    Notifications &amp; Alerts
                   </button>
                   <button
-                    className={settingsTab === 'users' ? 'active' : ''}
+                    type="button"
+                    className={`settings-nav-btn ${settingsTab === 'users' ? 'active' : ''}`}
                     onClick={() => setSettingsTab('users')}
                   >
-                    User Management
+                    Executive Access
                   </button>
                   <button
-                    className={settingsTab === 'security' ? 'active' : ''}
+                    type="button"
+                    className={`settings-nav-btn ${settingsTab === 'security' ? 'active' : ''}`}
                     onClick={() => setSettingsTab('security')}
                   >
-                    Security &amp; Audit
+                    Security &amp; Audit Log
                   </button>
                 </div>
 
                 <div className="form-panel">
-                  <div className="form-title">Store Information &amp; Preferences</div>
+                  <div className="form-title">Store Information &amp; Operational Preferences</div>
                   <div className="form-sub">
-                    Manage the operational preferences, executive contacts, and store policies used across WatchTown CRM.
+                    Manage the executive contacts, pricing currencies, inventory triggers, and store policies used across WatchTown CRM.
                   </div>
 
                   <div className="form-grid">
                     <div className="field">
-                      <label>Store Name</label>
+                      <label>Store Brand Name</label>
                       <input value={storeName} onChange={(e) => setStoreName(e.target.value)} />
                     </div>
 
                     <div className="field">
-                      <label>Super Admin Email</label>
+                      <label>Super Admin Email Contact</label>
                       <input value={adminEmail} onChange={(e) => setAdminEmail(e.target.value)} />
                     </div>
 
@@ -1673,8 +1805,8 @@ export function AdminDashboardClient({
                     </div>
 
                     <div className="field">
-                      <label>Store Currency</label>
-                      <select value={currency} onChange={(e) => setCurrency(e.target.value)}>
+                      <label>Store Base Currency</label>
+                      <select className="tool-select" value={currency} onChange={(e) => setCurrency(e.target.value)}>
                         <option>INR (₹)</option>
                         <option>USD ($)</option>
                         <option>AED (د.إ)</option>
@@ -1692,67 +1824,78 @@ export function AdminDashboardClient({
                     </div>
 
                     <div className="field full">
-                      <label>Store Description / Brand Mission</label>
+                      <label>Brand Mission / Description</label>
                       <textarea
+                        rows={3}
                         value={storeDescription}
                         onChange={(e) => setStoreDescription(e.target.value)}
                       />
                     </div>
                   </div>
 
-                  <div className="settings-section">
-                    <div style={{ fontSize: 11, fontWeight: 700, marginBottom: 4 }}>Operations &amp; Automation</div>
+                  <div style={{ marginTop: 24, paddingTop: 20, borderTop: '1px solid var(--admin-border-subtle)' }}>
+                    <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--admin-ink)', marginBottom: 12 }}>
+                      Operational Automations
+                    </div>
 
-                    <div className="settings-row">
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 0', borderBottom: '1px solid var(--admin-border-subtle)' }}>
                       <div>
-                        <strong>Low Stock Alert</strong>
-                        <span>Notify administrator when an individual model reaches 4 units or fewer.</span>
+                        <strong style={{ fontSize: 13, color: 'var(--admin-ink)' }}>Low Stock Trigger</strong>
+                        <div style={{ fontSize: 12, color: 'var(--admin-muted)', marginTop: 2 }}>
+                          Automatically flag models when warehouse units reach 4 or fewer.
+                        </div>
                       </div>
                       <button
                         type="button"
-                        className={`switch ${switchLowStock ? 'on' : ''}`}
+                        className={`toggle-switch ${switchLowStock ? 'on' : ''}`}
                         onClick={() => setSwitchLowStock(!switchLowStock)}
                       >
                         <i />
                       </button>
                     </div>
 
-                    <div className="settings-row">
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 0', borderBottom: '1px solid var(--admin-border-subtle)' }}>
                       <div>
-                        <strong>Order Confirmations</strong>
-                        <span>Keep pending orders visible and require verbal customer verification before dispatch.</span>
+                        <strong style={{ fontSize: 13, color: 'var(--admin-ink)' }}>Mandatory Order Confirmation</strong>
+                        <div style={{ fontSize: 12, color: 'var(--admin-muted)', marginTop: 2 }}>
+                          Require customer telephone verification before handing off to couriers.
+                        </div>
                       </div>
                       <button
                         type="button"
-                        className={`switch ${switchOrderConfirm ? 'on' : ''}`}
+                        className={`toggle-switch ${switchOrderConfirm ? 'on' : ''}`}
                         onClick={() => setSwitchOrderConfirm(!switchOrderConfirm)}
                       >
                         <i />
                       </button>
                     </div>
 
-                    <div className="settings-row">
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 0', borderBottom: '1px solid var(--admin-border-subtle)' }}>
                       <div>
-                        <strong>Inventory Activity Log</strong>
-                        <span>Record stock count and catalog changes for internal compliance audit history.</span>
+                        <strong style={{ fontSize: 13, color: 'var(--admin-ink)' }}>Compliance Audit Log</strong>
+                        <div style={{ fontSize: 12, color: 'var(--admin-muted)', marginTop: 2 }}>
+                          Maintain irreversible cryptographic logs of all stock, price, and catalog modifications.
+                        </div>
                       </div>
                       <button
                         type="button"
-                        className={`switch ${switchAuditLog ? 'on' : ''}`}
+                        className={`toggle-switch ${switchAuditLog ? 'on' : ''}`}
                         onClick={() => setSwitchAuditLog(!switchAuditLog)}
                       >
                         <i />
                       </button>
                     </div>
 
-                    <div className="settings-row">
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 0' }}>
                       <div>
-                        <strong>Marketing Emails &amp; Notifications</strong>
-                        <span>Allow automated order status updates and promotional communication.</span>
+                        <strong style={{ fontSize: 13, color: 'var(--admin-ink)' }}>Automated Customer Notifications</strong>
+                        <div style={{ fontSize: 12, color: 'var(--admin-muted)', marginTop: 2 }}>
+                          Send real-time dispatch and delivery status tracking emails to customers.
+                        </div>
                       </div>
                       <button
                         type="button"
-                        className={`switch ${switchMarketing ? 'on' : ''}`}
+                        className={`toggle-switch ${switchMarketing ? 'on' : ''}`}
                         onClick={() => setSwitchMarketing(!switchMarketing)}
                       >
                         <i />
@@ -1760,17 +1903,17 @@ export function AdminDashboardClient({
                     </div>
                   </div>
 
-                  <div className="modal-footer">
-                    <button className="btn" onClick={() => showToast('Changes discarded')}>
+                  <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 24, paddingTop: 16, borderTop: '1px solid var(--admin-border-subtle)' }}>
+                    <button type="button" className="btn" onClick={() => showToast('Changes discarded')}>
                       Discard
                     </button>
-                    <button className="btn gold" onClick={() => showToast('Preferences and store settings saved')}>
-                      Save Changes
+                    <button type="button" className="btn btn-gold" onClick={() => showToast('Store preferences updated')}>
+                      Save Preferences
                     </button>
                   </div>
                 </div>
               </div>
-            </section>
+            </div>
           )}
         </div>
       </main>
@@ -1778,45 +1921,50 @@ export function AdminDashboardClient({
       {/* 3. MOBILE BOTTOM NAVIGATION */}
       <nav className="mobile-bottom">
         <button
-          className={activeScreen === 'inventory' ? 'active' : ''}
+          type="button"
+          className={`mobile-bottom-btn ${activeScreen === 'inventory' ? 'active' : ''}`}
           onClick={() => setActiveScreen('inventory')}
         >
-          <span className="mi">▣</span>
-          Inventory
+          <Package size={17} />
+          <span>Inventory</span>
         </button>
         <button
-          className={activeScreen === 'orders' ? 'active' : ''}
+          type="button"
+          className={`mobile-bottom-btn ${activeScreen === 'orders' ? 'active' : ''}`}
           onClick={() => setActiveScreen('orders')}
         >
-          <span className="mi">◫</span>
-          Orders
+          <ShoppingBag size={17} />
+          <span>Orders</span>
         </button>
         <button
-          className={activeScreen === 'analytics' ? 'active' : ''}
+          type="button"
+          className={`mobile-bottom-btn ${activeScreen === 'analytics' ? 'active' : ''}`}
           onClick={() => setActiveScreen('analytics')}
         >
-          <span className="mi">⌁</span>
-          Analytics
+          <TrendingUp size={17} />
+          <span>Analytics</span>
         </button>
         <button
-          className={activeScreen === 'customers' ? 'active' : ''}
+          type="button"
+          className={`mobile-bottom-btn ${activeScreen === 'customers' ? 'active' : ''}`}
           onClick={() => setActiveScreen('customers')}
         >
-          <span className="mi">◌</span>
-          Customers
+          <Users size={17} />
+          <span>Customers</span>
         </button>
         <button
-          className={activeScreen === 'settings' ? 'active' : ''}
+          type="button"
+          className={`mobile-bottom-btn ${activeScreen === 'settings' ? 'active' : ''}`}
           onClick={() => setActiveScreen('settings')}
         >
-          <span className="mi">⚙</span>
-          Settings
+          <Settings size={17} />
+          <span>Settings</span>
         </button>
       </nav>
 
-      {/* 4. WATCH MODAL (ADD / EDIT) */}
+      {/* 4. TIMEPIECE ADD / EDIT MODAL */}
       {(isAddModalOpen || editingProduct) && (
-        <WatchModal
+        <TimepieceModal
           product={editingProduct}
           brands={brands}
           submitting={submitting}
@@ -1828,9 +1976,9 @@ export function AdminDashboardClient({
         />
       )}
 
-      {/* 5. ORDER MODAL (DOSSIER & FULFILLMENT) */}
+      {/* 5. ORDER DOSSIER MODAL */}
       {viewingOrder && (
-        <OrderModal
+        <OrderDossierModal
           order={viewingOrder}
           onClose={() => setViewingOrder(null)}
           onSave={handleOrderStatusChange}
@@ -1844,27 +1992,35 @@ export function AdminDashboardClient({
             <div className="modal-head">
               <div>
                 <h2 className="modal-title">Confirm Deletion</h2>
-                <div className="modal-sub">Irreversible catalog action</div>
+                <div className="modal-sub">Irreversible catalog modification</div>
               </div>
-              <button className="modal-close" onClick={() => setDeletingProduct(null)}>×</button>
+              <button type="button" className="modal-close" onClick={() => setDeletingProduct(null)}>
+                <X size={16} />
+              </button>
             </div>
 
-            <div style={{ padding: '8px 0 16px' }}>
-              <p style={{ margin: 0, fontSize: 13, color: 'var(--ink)' }}>
+            <div style={{ padding: '10px 0 16px' }}>
+              <p style={{ margin: 0, fontSize: 13, color: 'var(--admin-ink)', lineHeight: 1.5 }}>
                 Are you sure you want to permanently delete <strong>{deletingProduct.name}</strong>?
               </p>
-              <p style={{ marginTop: 6, fontSize: 10, color: 'var(--muted)' }}>
-                This timepiece will be immediately removed from the active storefront catalog and inventory asset valuation.
+              <p style={{ marginTop: 6, fontSize: 12, color: 'var(--admin-muted)', lineHeight: 1.4 }}>
+                This timepiece will be immediately removed from the customer catalog and stock valuation will recalculate.
               </p>
             </div>
 
             <div className="modal-footer">
-              <button className="btn" onClick={() => setDeletingProduct(null)} disabled={submitting}>
+              <button
+                type="button"
+                className="btn"
+                onClick={() => setDeletingProduct(null)}
+                disabled={submitting}
+              >
                 Cancel
               </button>
               <button
-                className="btn dark"
-                style={{ background: 'var(--red)', borderColor: 'var(--red)' }}
+                type="button"
+                className="btn btn-dark"
+                style={{ background: 'var(--admin-red)', borderColor: 'var(--admin-red)' }}
                 onClick={handleDeleteProduct}
                 disabled={submitting}
               >
@@ -1877,14 +2033,15 @@ export function AdminDashboardClient({
 
       {/* 7. FLOATING TOAST NOTIFICATION */}
       <div className={`toast ${toastMessage ? 'show' : ''}`}>
-        {toastMessage}
+        <CheckCircle2 size={16} style={{ color: 'var(--admin-gold)' }} />
+        <span>{toastMessage}</span>
       </div>
     </div>
   );
 }
 
-/* SUBCOMPONENT: WATCH MODAL */
-interface WatchModalProps {
+/* SUBCOMPONENT: TIMEPIECE ADD / EDIT MODAL */
+interface TimepieceModalProps {
   product: Product | null;
   brands: string[];
   submitting: boolean;
@@ -1892,7 +2049,7 @@ interface WatchModalProps {
   onSave: (data: Partial<Product>) => Promise<void>;
 }
 
-function WatchModal({ product, brands, submitting, onClose, onSave }: WatchModalProps) {
+function TimepieceModal({ product, brands, submitting, onClose, onSave }: TimepieceModalProps) {
   const [name, setName] = useState(product?.name || '');
   const [brand, setBrand] = useState(product?.brand || brands[0] || 'Rolex');
   const [sku, setSku] = useState(product?.sku || '');
@@ -1904,7 +2061,7 @@ function WatchModal({ product, brands, submitting, onClose, onSave }: WatchModal
   const [stock, setStock] = useState(product ? String(product.stock ?? 5) : '5');
   const [badge, setBadge] = useState(product?.badge || '-10%');
   const [categoriesInput, setCategoriesInput] = useState(
-    product?.categories?.join(', ') || "Luxury, Men's Watches, Dive Watch"
+    product?.categories?.join(', ') || "Luxury, Men's Watches, Automatic"
   );
   const [image, setImage] = useState(
     product?.image ||
@@ -1912,7 +2069,7 @@ function WatchModal({ product, brands, submitting, onClose, onSave }: WatchModal
   );
   const [description, setDescription] = useState(
     product?.description ||
-      'The Rolex Submariner Date is a legendary dive watch crafted with precision and premium materials.'
+      'Master crafted luxury timepiece engineered with high-precision automatic movement, scratch-resistant sapphire glass, and stainless steel architecture.'
   );
   const [uploading, setUploading] = useState(false);
 
@@ -1935,7 +2092,7 @@ function WatchModal({ product, brands, submitting, onClose, onSave }: WatchModal
       if (!res.ok) throw new Error(data.error || 'Failed to upload image');
       setImage(data.url);
     } catch {
-      alert('Upload failed. Please check S3 settings or enter an image URL.');
+      alert('Upload failed. Please check S3 settings or paste an image URL.');
     } finally {
       setUploading(false);
     }
@@ -1967,35 +2124,33 @@ function WatchModal({ product, brands, submitting, onClose, onSave }: WatchModal
       <div className="modal" onClick={(e) => e.stopPropagation()}>
         <div className="modal-head">
           <div>
-            <div className="modal-title">{product ? 'Edit Timepiece' : 'Add / Edit Watch'}</div>
-            <div className="modal-sub">Create or update a catalog timepiece.</div>
+            <div className="modal-title">{product ? 'Edit Luxury Watch' : 'Add Timepiece to Catalog'}</div>
+            <div className="modal-sub">Create or configure specifications, inventory count, and media.</div>
           </div>
-          <button className="modal-close" onClick={onClose}>×</button>
+          <button type="button" className="modal-close" onClick={onClose}>
+            <X size={16} />
+          </button>
         </div>
 
         <form onSubmit={handleSubmit}>
           <div className="modal-grid">
             <div>
-              <div className="image-stage">
-                {image ? (
-                  <img
-                    src={image}
-                    alt="Preview"
-                    onError={(e) => {
-                      (e.target as HTMLImageElement).src =
-                        'https://watchtown.in/wp-content/uploads/2025/11/Coach-Delancey-Rose-Gold-Black-Dial-36mm-1-600x600.jpg';
-                    }}
-                  />
-                ) : (
-                  <div className="big-watch" />
-                )}
+              <div className="modal-image-stage">
+                <img
+                  src={image}
+                  alt="Preview"
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).src = 'https://watchtown.in/wp-content/uploads/2025/11/Coach-Delancey-Rose-Gold-Black-Dial-36mm-1-600x600.jpg';
+                  }}
+                />
               </div>
 
               <label
                 className="btn"
-                style={{ width: '100%', marginTop: 7, cursor: uploading ? 'not-allowed' : 'pointer' }}
+                style={{ width: '100%', marginTop: 10, cursor: uploading ? 'not-allowed' : 'pointer' }}
               >
-                {uploading ? 'Uploading to S3...' : '⇧ Upload Image'}
+                <Upload size={14} />
+                <span>{uploading ? 'Uploading to S3...' : 'Upload Media File'}</span>
                 <input
                   type="file"
                   accept="image/*"
@@ -2005,27 +2160,27 @@ function WatchModal({ product, brands, submitting, onClose, onSave }: WatchModal
                 />
               </label>
 
-              <div style={{ fontSize: 8, color: '#8d959a', textAlign: 'center', marginTop: 5 }}>
-                or enter image URL
+              <div style={{ marginTop: 8 }}>
+                <label style={{ fontSize: 11, color: 'var(--admin-muted)', fontWeight: 600 }}>Or Direct Image URL</label>
+                <input
+                  type="url"
+                  className="search-input"
+                  style={{ height: 34, fontSize: 12, marginTop: 4, width: '100%' }}
+                  placeholder="https://..."
+                  value={image}
+                  onChange={(e) => setImage(e.target.value)}
+                />
               </div>
-              <input
-                type="url"
-                className="search"
-                style={{ height: 32, fontSize: 9, marginTop: 4, width: '100%' }}
-                placeholder="https://..."
-                value={image}
-                onChange={(e) => setImage(e.target.value)}
-              />
             </div>
 
             <div className="form-grid">
               <div className="field">
-                <label>Watch Title / Model</label>
+                <label>Watch Title / Model Name</label>
                 <input required value={name} onChange={(e) => setName(e.target.value)} />
               </div>
 
               <div className="field">
-                <label>Brand</label>
+                <label>Luxury Brand</label>
                 <input required value={brand} onChange={(e) => setBrand(e.target.value)} />
               </div>
 
@@ -2045,18 +2200,18 @@ function WatchModal({ product, brands, submitting, onClose, onSave }: WatchModal
               </div>
 
               <div className="field">
-                <label>Original Price (₹)</label>
+                <label>Original / MRP Price (₹)</label>
                 <input type="number" value={originalPrice} onChange={(e) => setOriginalPrice(e.target.value)} />
               </div>
 
               <div className="field">
-                <label>Stock Quantity</label>
+                <label>Warehouse Stock Units</label>
                 <input type="number" required min="0" value={stock} onChange={(e) => setStock(e.target.value)} />
               </div>
 
               <div className="field">
-                <label>Promo Badge</label>
-                <input value={badge} placeholder="-10%, LIMITED" onChange={(e) => setBadge(e.target.value)} />
+                <label>Promo Badge (Optional)</label>
+                <input value={badge} placeholder="-10%, LIMITED, HOT" onChange={(e) => setBadge(e.target.value)} />
               </div>
 
               <div className="field full">
@@ -2065,7 +2220,7 @@ function WatchModal({ product, brands, submitting, onClose, onSave }: WatchModal
               </div>
 
               <div className="field full">
-                <label>Description</label>
+                <label>Watch Description &amp; Craftsmanship</label>
                 <textarea rows={3} value={description} onChange={(e) => setDescription(e.target.value)} />
               </div>
             </div>
@@ -2075,8 +2230,8 @@ function WatchModal({ product, brands, submitting, onClose, onSave }: WatchModal
             <button type="button" className="btn" onClick={onClose} disabled={submitting}>
               Cancel
             </button>
-            <button type="submit" className="btn gold" disabled={submitting}>
-              {submitting ? 'Saving Watch...' : 'Save Watch'}
+            <button type="submit" className="btn btn-gold" disabled={submitting}>
+              {submitting ? 'Saving...' : 'Save Watch Model'}
             </button>
           </div>
         </form>
@@ -2086,13 +2241,13 @@ function WatchModal({ product, brands, submitting, onClose, onSave }: WatchModal
 }
 
 /* SUBCOMPONENT: ORDER DOSSIER MODAL */
-interface OrderModalProps {
+interface OrderDossierModalProps {
   order: Order;
   onClose: () => void;
   onSave: (orderId: string, status: OrderStatus, tracking?: string, courier?: string) => Promise<void>;
 }
 
-function OrderModal({ order, onClose, onSave }: OrderModalProps) {
+function OrderDossierModal({ order, onClose, onSave }: OrderDossierModalProps) {
   const [status, setStatus] = useState<OrderStatus>(order.status);
   const [courier, setCourier] = useState(order.courier || 'BlueDart Express');
   const [tracking, setTracking] = useState(order.trackingNumber || '');
@@ -2107,48 +2262,58 @@ function OrderModal({ order, onClose, onSave }: OrderModalProps) {
 
   return (
     <div className="overlay" onClick={onClose}>
-      <div className="modal" style={{ width: 'min(700px, 100%)' }} onClick={(e) => e.stopPropagation()}>
+      <div className="modal" style={{ width: 'min(720px, 100%)' }} onClick={(e) => e.stopPropagation()}>
         <div className="modal-head">
           <div>
-            <div className="modal-title">Order Details — {order.orderNumber}</div>
+            <div className="modal-title">Order Dossier: {order.orderNumber}</div>
             <div className="modal-sub">
-              Placed on {new Date(order.createdAt).toLocaleString('en-IN')}
+              Placed on {new Date(order.createdAt).toLocaleString('en-IN', {
+                month: 'long',
+                day: 'numeric',
+                year: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit',
+              })}
             </div>
           </div>
-          <button className="modal-close" onClick={onClose}>×</button>
+          <button type="button" className="modal-close" onClick={onClose}>
+            <X size={16} />
+          </button>
         </div>
 
-        <div className="dossier">
-          {/* Customer Dossier */}
-          <div className="dossier-card">
-            <div className="dossier-title">Customer Information</div>
-            <div className="dossier-grid">
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          {/* Customer Shipping Dossier Card */}
+          <div style={{ background: '#fcfaf6', border: '1px solid var(--admin-border)', borderRadius: 10, padding: 16 }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--admin-muted)', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 10 }}>
+              Customer Delivery Address
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
               <div>
-                <div className="d-label">Customer</div>
-                <div className="d-value">{order.customer.fullName}</div>
+                <div style={{ fontSize: 11, color: 'var(--admin-muted)' }}>Customer Name</div>
+                <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--admin-ink)', marginTop: 2 }}>{order.customer.fullName}</div>
               </div>
               <div>
-                <div className="d-label">Phone</div>
-                <div className="d-value">{order.customer.phone}</div>
+                <div style={{ fontSize: 11, color: 'var(--admin-muted)' }}>Phone Number</div>
+                <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--admin-ink)', marginTop: 2 }}>{order.customer.phone}</div>
               </div>
               <div>
-                <div className="d-label">Email</div>
-                <div className="d-value">{order.customer.email || '—'}</div>
+                <div style={{ fontSize: 11, color: 'var(--admin-muted)' }}>Email Address</div>
+                <div style={{ fontSize: 13, color: 'var(--admin-ink)', marginTop: 2 }}>{order.customer.email || '—'}</div>
               </div>
               <div>
-                <div className="d-label">City / State</div>
-                <div className="d-value">{order.customer.city}, {order.customer.state}</div>
+                <div style={{ fontSize: 11, color: 'var(--admin-muted)' }}>Destination City / State</div>
+                <div style={{ fontSize: 13, color: 'var(--admin-ink)', marginTop: 2 }}>{order.customer.city}, {order.customer.state}</div>
               </div>
               <div style={{ gridColumn: '1 / -1' }}>
-                <div className="d-label">Shipping Address</div>
-                <div className="d-value">
+                <div style={{ fontSize: 11, color: 'var(--admin-muted)' }}>Full Shipping Address</div>
+                <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--admin-ink)', marginTop: 2 }}>
                   {order.customer.street}, {order.customer.city}, {order.customer.state} — {order.customer.pincode}
                 </div>
               </div>
               {order.notes && (
-                <div style={{ gridColumn: '1 / -1' }}>
-                  <div className="d-label">Customer Delivery Notes</div>
-                  <div className="d-value" style={{ fontStyle: 'italic', color: 'var(--gold)' }}>
+                <div style={{ gridColumn: '1 / -1', marginTop: 4 }}>
+                  <div style={{ fontSize: 11, color: 'var(--admin-muted)' }}>Delivery Instructions</div>
+                  <div style={{ fontSize: 13, fontStyle: 'italic', color: 'var(--admin-gold)', marginTop: 2 }}>
                     &quot;{order.notes}&quot;
                   </div>
                 </div>
@@ -2156,66 +2321,63 @@ function OrderModal({ order, onClose, onSave }: OrderModalProps) {
             </div>
           </div>
 
-          {/* Ordered Items */}
-          <div className="dossier-card">
-            <div className="dossier-title">Ordered Items ({order.items.length})</div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          {/* Ordered Timepieces Breakdown */}
+          <div style={{ background: '#ffffff', border: '1px solid var(--admin-border)', borderRadius: 10, padding: 16 }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--admin-muted)', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 12 }}>
+              Ordered Items ({order.items.length})
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
               {order.items.map((it, idx) => (
                 <div
                   key={idx}
                   style={{
                     display: 'flex',
                     alignItems: 'center',
-                    gap: 9,
-                    padding: '6px 0',
-                    borderBottom: idx < order.items.length - 1 ? '1px solid var(--line2)' : 'none',
+                    gap: 12,
+                    padding: '8px 0',
+                    borderBottom: idx < order.items.length - 1 ? '1px solid var(--admin-border-subtle)' : 'none',
                   }}
                 >
                   {it.image ? (
-                    <img src={it.image} alt={it.name} className="product-thumb" style={{ width: 34, height: 34 }} />
+                    <img src={it.image} alt={it.name} className="product-thumb" style={{ width: 40, height: 40 }} />
                   ) : (
-                    <div className="watch" style={{ width: 34, height: 34 }}>
-                      <div className="dial" style={{ width: 16, height: 16 }} />
+                    <div className="product-thumb" style={{ width: 40, height: 40, display: 'grid', placeItems: 'center' }}>
+                      <Package size={16} />
                     </div>
                   )}
                   <div style={{ flex: 1 }}>
-                    <div className="product-name">{it.name}</div>
-                    <div className="sku">{it.brand} &bull; Qty {it.quantity}</div>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--admin-ink)' }}>{it.name}</div>
+                    <div style={{ fontSize: 11, color: 'var(--admin-muted)', marginTop: 2 }}>{it.brand} &bull; Quantity: {it.quantity}</div>
                   </div>
-                  <div className="price">₹{(it.price * it.quantity).toLocaleString('en-IN')}</div>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--admin-ink)' }}>
+                    ₹{(it.price * it.quantity).toLocaleString('en-IN')}
+                  </div>
                 </div>
               ))}
             </div>
 
-            <div
-              style={{
-                borderTop: '1px solid var(--line2)',
-                marginTop: 8,
-                paddingTop: 8,
-                display: 'flex',
-                justifyContent: 'space-between',
-                fontSize: 10,
-              }}
-            >
-              <span>Total Amount</span>
-              <strong style={{ fontSize: 13, color: 'var(--gold)' }}>₹{order.total.toLocaleString('en-IN')}</strong>
+            <div style={{ borderTop: '1px solid var(--admin-border)', marginTop: 12, paddingTop: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{ fontSize: 13, color: 'var(--admin-muted)', fontWeight: 500 }}>Total Order Value:</span>
+              <strong style={{ fontSize: 16, color: 'var(--admin-gold)' }}>₹{order.total.toLocaleString('en-IN')}</strong>
             </div>
 
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 6, fontSize: 8 }}>
-              <span>Payment Mode</span>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 8, fontSize: 12 }}>
+              <span style={{ color: 'var(--admin-muted)' }}>Payment Mode:</span>
               <span className={`pill ${order.paymentMethod === 'cod' ? 'pending' : 'confirmed'}`}>
                 {order.paymentMethod === 'cod' ? 'Cash on Delivery (COD)' : 'UPI Online Payment'}
               </span>
             </div>
           </div>
 
-          {/* Fulfillment & Tracking */}
-          <div className="dossier-card">
-            <div className="dossier-title">Fulfillment &amp; Logistics Tracking</div>
+          {/* Fulfillment & Tracking Controls */}
+          <div style={{ background: '#fcfaf6', border: '1px solid var(--admin-border)', borderRadius: 10, padding: 16 }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--admin-muted)', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 12 }}>
+              Fulfillment Status &amp; Courier Logistics
+            </div>
             <div className="form-grid">
               <div className="field">
-                <label>Order Status</label>
-                <select value={status} onChange={(e) => setStatus(e.target.value as OrderStatus)}>
+                <label>Fulfillment Stage</label>
+                <select className="tool-select" style={{ width: '100%' }} value={status} onChange={(e) => setStatus(e.target.value as OrderStatus)}>
                   <option value="pending">Pending</option>
                   <option value="confirmed">Confirmed</option>
                   <option value="dispatched">Dispatched</option>
@@ -2243,18 +2405,18 @@ function OrderModal({ order, onClose, onSave }: OrderModalProps) {
               </div>
 
               <div className="field">
-                <label>Internal Logistics Note</label>
-                <input placeholder="Add internal note about this package..." />
+                <label>Logistics Remarks</label>
+                <input placeholder="Optional internal notes..." />
               </div>
             </div>
           </div>
         </div>
 
         <div className="modal-footer">
-          <button className="btn" onClick={onClose} disabled={submitting}>
-            Cancel
+          <button type="button" className="btn" onClick={onClose} disabled={submitting}>
+            Close
           </button>
-          <button className="btn gold" onClick={handleUpdate} disabled={submitting}>
+          <button type="button" className="btn btn-gold" onClick={handleUpdate} disabled={submitting}>
             {submitting ? 'Saving...' : 'Save Status & Tracking'}
           </button>
         </div>
