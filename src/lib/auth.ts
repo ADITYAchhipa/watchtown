@@ -13,11 +13,6 @@ const SESSION_SECRET = process.env.SESSION_SECRET || (() => {
   console.warn('[SECURITY] SESSION_SECRET not set! Using random secret. Sessions will not persist across restarts.');
   return crypto.randomBytes(64).toString('hex');
 })();
-const ADMIN_REGISTRATION_SECRET = process.env.ADMIN_REGISTRATION_SECRET || (() => {
-  const secret = crypto.randomBytes(32).toString('hex');
-  console.warn(`[SECURITY] ADMIN_REGISTRATION_SECRET not set! Generated: ${secret}`);
-  return secret;
-})();
 const SESSION_DURATION_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 
 // Path to users database JSON file
@@ -287,9 +282,7 @@ export async function checkUserExists(email: string): Promise<boolean> {
 export async function registerUser(
   name: string,
   email: string,
-  password: string,
-  role: 'admin' | 'customer' = 'customer',
-  adminSecret?: string
+  password: string
 ): Promise<{ user: User; session: AuthSession } | { error: string }> {
   const normalizedEmail = email.trim().toLowerCase();
   const users = await readUsers();
@@ -302,23 +295,12 @@ export async function registerUser(
     return { error: 'Password must be between 8 and 128 characters long.' };
   }
 
-  // Determine role: if role requested is admin, check if no admins exist or adminSecret is provided
-  let assignedRole: 'admin' | 'customer' = role;
-  if (role === 'admin') {
-    const adminExists = users.some((u) => u.role === 'admin');
-    const secretMatches = adminSecret && adminSecret.trim() === ADMIN_REGISTRATION_SECRET;
-    if (adminExists && !secretMatches) {
-      return { error: 'Valid Admin Secret Key required to register an admin account.' };
-    }
-    assignedRole = 'admin';
-  }
-
   const { hash, salt } = await hashPassword(password);
   const newUser: StoredUser = {
     id: crypto.randomUUID(),
     name: name.trim(),
     email: normalizedEmail,
-    role: assignedRole,
+    role: 'customer',
     passwordHash: hash,
     salt,
     createdAt: new Date().toISOString(),

@@ -33,6 +33,12 @@ export default function AdminLoginPage() {
         return;
       }
 
+      if (data.user?.role !== 'admin') {
+        setError('Access denied. Super administrator privileges required.');
+        setLoading(false);
+        return;
+      }
+
       // Successful login
       router.push('/admin');
       router.refresh();
@@ -46,26 +52,23 @@ export default function AdminLoginPage() {
     <div className="admin-auth-wrapper">
       <div className="admin-auth-card">
         <div className="admin-auth-brand">
-          <div style={{ display: 'inline-flex', marginBottom: 12 }}>
-            <span className="admin-logo-badge">
-              <ShieldCheck size={18} />
-              WATCHTOWN CRM
-            </span>
-          </div>
-          <h2>Administrator Portal</h2>
-          <p>Sign in to manage luxury inventory, stock & products</p>
+          <div className="brand-badge">WATCHTOWN</div>
+          <div className="brand-sub">SUPER ADMIN PORTAL</div>
+          <h2>Executive Sign In</h2>
+          <p>Curated time. Precise control.</p>
         </div>
 
         {error && (
           <div
             style={{
-              background: 'rgba(239, 68, 68, 0.15)',
-              border: '1px solid rgba(239, 68, 68, 0.3)',
-              color: '#f87171',
+              background: 'var(--redSoft)',
+              border: '1px solid #f2c7c7',
+              color: 'var(--red)',
               padding: '10px 14px',
               borderRadius: 8,
-              fontSize: 13,
-              marginBottom: 18,
+              fontSize: 10,
+              marginBottom: 16,
+              fontWeight: 500,
             }}
           >
             {error}
@@ -73,24 +76,26 @@ export default function AdminLoginPage() {
         )}
 
         <form onSubmit={handleSubmit}>
-          <div className="admin-form-group">
-            <label className="admin-label">Admin Email</label>
+          <div className="field" style={{ marginBottom: 14 }}>
+            <label style={{ fontSize: 9, color: 'var(--muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.08em' }}>
+              Super Admin Email
+            </label>
             <div style={{ position: 'relative' }}>
               <Mail
-                size={16}
+                size={14}
                 style={{
                   position: 'absolute',
-                  left: 12,
+                  left: 11,
                   top: '50%',
                   transform: 'translateY(-50%)',
-                  color: '#6b7280',
+                  color: '#8f969b',
                 }}
               />
               <input
                 type="email"
                 required
-                className="admin-input"
-                style={{ paddingLeft: 38 }}
+                className="search"
+                style={{ paddingLeft: 34, height: 42, fontSize: 11 }}
                 placeholder="admin@watchtown.in"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
@@ -98,25 +103,27 @@ export default function AdminLoginPage() {
             </div>
           </div>
 
-          <div className="admin-form-group">
-            <label className="admin-label">Password</label>
+          <div className="field" style={{ marginBottom: 20 }}>
+            <label style={{ fontSize: 9, color: 'var(--muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.08em' }}>
+              Password
+            </label>
             <div style={{ position: 'relative' }}>
               <Lock
-                size={16}
+                size={14}
                 style={{
                   position: 'absolute',
-                  left: 12,
+                  left: 11,
                   top: '50%',
                   transform: 'translateY(-50%)',
-                  color: '#6b7280',
+                  color: '#8f969b',
                 }}
               />
               <input
                 type={showPassword ? 'text' : 'password'}
                 required
-                className="admin-input"
-                style={{ paddingLeft: 38, paddingRight: 38 }}
-                placeholder="••••••••"
+                className="search"
+                style={{ paddingLeft: 34, paddingRight: 34, height: 42, fontSize: 11 }}
+                placeholder="••••••••••••"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
               />
@@ -125,17 +132,19 @@ export default function AdminLoginPage() {
                 onClick={() => setShowPassword(!showPassword)}
                 style={{
                   position: 'absolute',
-                  right: 12,
+                  right: 10,
                   top: '50%',
                   transform: 'translateY(-50%)',
                   background: 'transparent',
                   border: 'none',
-                  color: '#6b7280',
+                  color: '#8f969b',
                   cursor: 'pointer',
-                  padding: 0,
+                  padding: 4,
+                  display: 'grid',
+                  placeItems: 'center',
                 }}
               >
-                {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                {showPassword ? <EyeOff size={14} /> : <Eye size={14} />}
               </button>
             </div>
           </div>
@@ -143,14 +152,21 @@ export default function AdminLoginPage() {
           <button
             type="submit"
             disabled={loading}
-            className="admin-btn admin-btn-primary"
-            style={{ width: '100%', marginTop: 8, padding: '12px' }}
+            className="btn gold"
+            style={{
+              width: '100%',
+              height: 42,
+              fontSize: 11,
+              fontWeight: 600,
+              borderRadius: 8,
+              justifyContent: 'center',
+            }}
           >
             {loading ? (
               'Authenticating...'
             ) : (
               <>
-                Sign In to Dashboard <ArrowRight size={16} />
+                Sign In to Workspace <ArrowRight size={14} />
               </>
             )}
           </button>
@@ -159,17 +175,22 @@ export default function AdminLoginPage() {
         <div
           style={{
             marginTop: 24,
-            paddingTop: 18,
-            borderTop: '1px solid var(--admin-card-border)',
+            paddingTop: 16,
+            borderTop: '1px solid var(--line2)',
             display: 'flex',
+            flexDirection: 'column',
             alignItems: 'center',
-            justifyContent: 'center',
-            fontSize: 12,
-            color: 'var(--admin-text-dim)',
+            gap: 8,
+            fontSize: 9,
+            color: 'var(--muted)',
           }}
         >
-          <Link href="/" style={{ color: 'var(--admin-text-muted)' }}>
-            Back to Store
+          <div style={{ display: 'flex', alignItems: 'center', gap: 4, color: '#7a8288' }}>
+            <ShieldCheck size={12} style={{ color: 'var(--gold)' }} />
+            <span>Protected Executive System • Super Admin Only</span>
+          </div>
+          <Link href="/" style={{ color: 'var(--ink)', textDecoration: 'underline', marginTop: 4 }}>
+            ← Back to Storefront
           </Link>
         </div>
       </div>

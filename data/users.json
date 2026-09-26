@@ -1,11 +1,20 @@
 [
   {
-    "id": "usr_admin_001",
-    "name": "WatchTown Administrator",
+    "id": "usr_superadmin_001",
+    "name": "Super Administrator",
     "email": "admin@watchtown.in",
     "role": "admin",
-    "passwordHash": "6919e33a2fbe6a7cd0c94b05d18a9334565be6a28a623af717718ef17da19d4f0ba3d085c6df60cb18047470f522fcdbde534b3ee672543f1a7235801da91bb6",
-    "salt": "20ec1c1a1dd84ec80c689a09457e7206",
+    "passwordHash": "84bf35ea3626b6bf2b94b7787d57e432e0353f38e57e99a2af68d0dd57668cc614247d5d5505c0c16ad0b4f3d0925638d6526819203ffb2d74a1f0a9ababeb8a",
+    "salt": "6169e38a46fc3c760084a89a5bfd0bfc",
     "createdAt": "2026-09-17T15:22:01.728Z"
+  },
+  {
+    "id": "usr_superadmin_002",
+    "name": "Super Administrator",
+    "email": "aditya@watchtown.com",
+    "role": "admin",
+    "passwordHash": "84bf35ea3626b6bf2b94b7787d57e432e0353f38e57e99a2af68d0dd57668cc614247d5d5505c0c16ad0b4f3d0925638d6526819203ffb2d74a1f0a9ababeb8a",
+    "salt": "6169e38a46fc3c760084a89a5bfd0bfc",
+    "createdAt": "2026-09-26T21:50:00.000Z"
   }
 ]
