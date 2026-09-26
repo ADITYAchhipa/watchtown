@@ -1,0 +1,128 @@
+[
+  {
+    "id": "ord_1001",
+    "orderNumber": "WT-2025-1001",
+    "customer": {
+      "fullName": "Aakash Verma",
+      "phone": "+91 98234 56789",
+      "email": "aakash.v@gmail.com",
+      "street": "Flat 402, Royal Palms, Bandra West",
+      "city": "Mumbai",
+      "state": "Maharashtra",
+      "pincode": "400050"
+    },
+    "items": [
+      {
+        "productId": "18324",
+        "name": "Rolex Day-Date President Gold Blue Dial",
+        "brand": "Rolex",
+        "price": 2499,
+        "quantity": 1,
+        "image": "https://watchtown.in/wp-content/uploads/2026/02/Rolex-Day-Date-President-Gold-Blue-Dial-1-600x600.jpeg"
+      }
+    ],
+    "subtotal": 2499,
+    "shippingFee": 0,
+    "total": 2499,
+    "paymentMethod": "cod",
+    "status": "dispatched",
+    "trackingNumber": "BD-78941258",
+    "courier": "BlueDart Express",
+    "notes": "Call before delivery",
+    "createdAt": "2026-09-24T15:42:23.419Z",
+    "updatedAt": "2026-09-25T15:42:23.419Z"
+  },
+  {
+    "id": "ord_1002",
+    "orderNumber": "WT-2025-1002",
+    "customer": {
+      "fullName": "Rohit Sharma",
+      "phone": "+91 97112 34567",
+      "email": "rohit.s@outlook.com",
+      "street": "H-12, Sector 15, Golf Course Road",
+      "city": "Gurugram",
+      "state": "Haryana",
+      "pincode": "122001"
+    },
+    "items": [
+      {
+        "productId": "9302",
+        "name": "Audemars Piguet Royal Oak Stainless Steel Silver Black Dial",
+        "brand": "Audemars Piguet",
+        "price": 6500,
+        "quantity": 1,
+        "image": "https://watchtown.in/wp-content/uploads/2025/10/Audemars-Piguet-Royal-Oak-Stainless-Steel-Silver-Black-Dial-1-watchtown-600x600.jpeg"
+      }
+    ],
+    "subtotal": 6500,
+    "shippingFee": 0,
+    "total": 6500,
+    "paymentMethod": "cod",
+    "status": "confirmed",
+    "notes": "Premium box packaging requested",
+    "createdAt": "2026-09-25T15:42:23.419Z",
+    "updatedAt": "2026-09-26T03:42:23.419Z"
+  },
+  {
+    "id": "ord_1003",
+    "orderNumber": "WT-2025-1003",
+    "customer": {
+      "fullName": "Priya Nair",
+      "phone": "+91 99887 65432",
+      "email": "priya.nair@yahoo.com",
+      "street": "34, Indiranagar 100ft Road",
+      "city": "Bengaluru",
+      "state": "Karnataka",
+      "pincode": "560038"
+    },
+    "items": [
+      {
+        "productId": "12906",
+        "name": "Coach Delancey Rose Gold Black Dial 36mm",
+        "brand": "Coach",
+        "price": 6499,
+        "quantity": 1,
+        "image": "https://watchtown.in/wp-content/uploads/2025/11/Coach-Delancey-Rose-Gold-Black-Dial-36mm-1-600x600.jpg"
+      }
+    ],
+    "subtotal": 6499,
+    "shippingFee": 0,
+    "total": 6499,
+    "paymentMethod": "upi",
+    "status": "pending",
+    "createdAt": "2026-09-26T13:42:23.419Z",
+    "updatedAt": "2026-09-26T13:42:23.419Z"
+  },
+  {
+    "id": "ord_1004",
+    "orderNumber": "WT-2025-1004",
+    "customer": {
+      "fullName": "Deepak Patel",
+      "phone": "+91 98765 43210",
+      "email": "deepak.patel@gmail.com",
+      "street": "12, C.G. Road, Navrangpura",
+      "city": "Ahmedabad",
+      "state": "Gujarat",
+      "pincode": "380009"
+    },
+    "items": [
+      {
+        "productId": "15559",
+        "name": "Tag Heuer Aquaracer Black Diver 44mm",
+        "brand": "Tag Heuer",
+        "price": 5499,
+        "quantity": 1,
+        "image": "https://watchtown.in/wp-content/uploads/2025/12/Tag-Heuer-Aquaracer-Black-Diver-44mm-1-600x600.jpg"
+      }
+    ],
+    "subtotal": 5499,
+    "shippingFee": 0,
+    "total": 5499,
+    "paymentMethod": "cod",
+    "status": "delivered",
+    "trackingNumber": "DEL-3498102",
+    "courier": "Delhivery",
+    "createdAt": "2026-09-21T15:42:23.419Z",
+    "updatedAt": "2026-09-24T15:42:23.419Z"
+  }
+]

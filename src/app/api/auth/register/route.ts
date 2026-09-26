@@ -22,7 +22,15 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json();
-    const { name, email, password, role = 'customer', adminSecret, otp } = body;
+    const { name, email, password, role, adminSecret, otp } = body;
+
+    // Disallow any attempt to register an administrator account
+    if (role === 'admin' || adminSecret) {
+      return NextResponse.json(
+        { error: 'Administrator registration is disabled. Super Admin accounts cannot be created.' },
+        { status: 403 }
+      );
+    }
 
     if (!name || !email || !password || typeof name !== 'string' || typeof email !== 'string' || typeof password !== 'string') {
       return NextResponse.json(
@@ -35,31 +43,24 @@ export async function POST(req: NextRequest) {
     if (!emailRegex.test(email)) {
       return NextResponse.json({ error: 'Invalid email format.' }, { status: 400 });
     }
-    
-    const isAdminWithSecret = role === 'admin' && adminSecret && typeof adminSecret === 'string';
-    if (!isAdminWithSecret) {
-      if (!otp || typeof otp !== 'string' || otp.trim().length === 0) {
-        return NextResponse.json(
-          { error: 'Verification code (OTP) is required to complete registration.' },
-          { status: 400 }
-        );
-      }
 
-      // Verify OTP
-      const otpVerification = verifyOtp(email, otp);
-      if (!otpVerification.valid) {
-        return NextResponse.json(
-          { error: otpVerification.error || 'Invalid or expired OTP.' },
-          { status: 400 }
-        );
-      }
+    if (!otp || typeof otp !== 'string' || otp.trim().length === 0) {
+      return NextResponse.json(
+        { error: 'Verification code (OTP) is required to complete registration.' },
+        { status: 400 }
+      );
     }
 
-    if (adminSecret && typeof adminSecret !== 'string') {
-      return NextResponse.json({ error: 'Admin secret must be a string.' }, { status: 400 });
+    // Verify OTP
+    const otpVerification = verifyOtp(email, otp);
+    if (!otpVerification.valid) {
+      return NextResponse.json(
+        { error: otpVerification.error || 'Invalid or expired OTP.' },
+        { status: 400 }
+      );
     }
 
-    const result = await registerUser(name, email, password, role, adminSecret);
+    const result = await registerUser(name, email, password);
     if ('error' in result) {
       return NextResponse.json({ error: result.error }, { status: 400 });
     }
