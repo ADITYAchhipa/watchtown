@@ -1,7 +1,6 @@
 'use client';
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import Link from 'next/link';
 import {
   ChevronLeft,
   ChevronRight,
@@ -10,10 +9,7 @@ import {
   MoreVertical,
   ArrowLeft,
   CheckCheck,
-  Star,
   ShieldCheck,
-  MessageSquare,
-  Sparkles,
 } from 'lucide-react';
 
 interface WhatsAppReview {
@@ -656,98 +652,6 @@ export function CustomerReviewsSection() {
             </div>
           </div>
 
-          {/* Dots Indicator */}
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: 8,
-              marginTop: 24,
-            }}
-          >
-            {Array.from({ length: maxIndex + 1 }).map((_, idx) => (
-              <button
-                key={idx}
-                type="button"
-                onClick={() => setCurrentIndex(idx)}
-                aria-label={`Go to slide ${idx + 1}`}
-                style={{
-                  width: currentIndex === idx ? 24 : 8,
-                  height: 8,
-                  borderRadius: 4,
-                  background: currentIndex === idx ? '#d4af37' : 'rgba(255, 255, 255, 0.25)',
-                  border: 'none',
-                  cursor: 'pointer',
-                  transition: 'all 0.3s ease',
-                  padding: 0,
-                }}
-              />
-            ))}
-          </div>
-        </div>
-
-        {/* Live Proof Video Link Banner */}
-        <div
-          style={{
-            marginTop: 40,
-            background: 'linear-gradient(90deg, rgba(212, 175, 55, 0.1) 0%, rgba(37, 211, 102, 0.1) 100%)',
-            border: '1px solid rgba(212, 175, 55, 0.25)',
-            borderRadius: 14,
-            padding: '16px 24px',
-            display: 'flex',
-            flexWrap: 'wrap',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            gap: 16,
-          }}
-        >
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <div
-              style={{
-                width: 38,
-                height: 38,
-                borderRadius: '50%',
-                background: '#25D366',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                color: '#ffffff',
-              }}
-            >
-              <MessageSquare size={20} />
-            </div>
-            <div>
-              <div style={{ fontSize: 14, fontWeight: 700, color: '#ffffff' }}>
-                Want to see live dispatch video of your watch before courier pickup?
-              </div>
-              <div style={{ fontSize: 12, color: '#94a3b8' }}>
-                Join our official WhatsApp group for daily live packaging and unboxing clips.
-              </div>
-            </div>
-          </div>
-
-          <a
-            href="https://chat.whatsapp.com/EqFzIkN7VAk4sEipabrqEU"
-            target="_blank"
-            rel="noopener noreferrer"
-            style={{
-              background: '#25D366',
-              color: '#ffffff',
-              fontWeight: 700,
-              fontSize: 13,
-              padding: '10px 22px',
-              borderRadius: 25,
-              textDecoration: 'none',
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: 8,
-              boxShadow: '0 4px 12px rgba(37, 211, 102, 0.35)',
-              transition: 'transform 0.2s ease',
-            }}
-          >
-            <span>Join WhatsApp Community</span> &rarr;
-          </a>
         </div>
       </div>
     </section>
