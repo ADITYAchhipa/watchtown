@@ -110,11 +110,35 @@ export const metadata: Metadata = {
   manifest: '/manifest.webmanifest',
 };
 
-export default function RootLayout({
+import { headers } from 'next/headers';
+
+export default async function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const headersList = await headers();
+  const pathname = headersList.get('x-pathname') || '';
+  const isAdmin = headersList.get('x-is-admin') === '1' || pathname.startsWith('/admin');
+
+  if (isAdmin) {
+    return (
+      <html
+        lang="en-US"
+        className={`${urbanist.variable} ${poppins.variable} ${playfair.variable}`}
+        suppressHydrationWarning
+      >
+        <head>
+          <link rel="preconnect" href="https://fonts.googleapis.com" />
+          <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        </head>
+        <body className="admin-root-body" suppressHydrationWarning>
+          {children}
+        </body>
+      </html>
+    );
+  }
+
   return (
     <html
       lang="en-US"
