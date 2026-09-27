@@ -5,8 +5,11 @@ import {
   getInventoryStats,
   getAllBrands,
   getAllCategories,
+  getBrandsList,
+  getCategoriesList,
 } from '@/lib/db';
 import { getOrders, getOrderStats } from '@/lib/orders';
+import { getReviews } from '@/lib/reviews';
 import { AdminDashboardClient } from '@/components/admin/AdminDashboardClient';
 
 export const dynamic = 'force-dynamic';
@@ -22,8 +25,11 @@ export default async function AdminDashboardPage() {
   const stats = await getInventoryStats();
   const brands = await getAllBrands();
   const categories = await getAllCategories();
+  const brandRecords = await getBrandsList();
+  const categoryRecords = await getCategoriesList();
   const { orders } = await getOrders({ limit: 100 });
   const orderStats = await getOrderStats();
+  const reviews = await getReviews();
 
   return (
     <AdminDashboardClient
@@ -32,8 +38,11 @@ export default async function AdminDashboardPage() {
       initialStats={stats}
       brands={brands}
       categories={categories}
+      initialBrandsList={brandRecords}
+      initialCategoriesList={categoryRecords}
       initialOrders={orders}
       initialOrderStats={orderStats}
+      initialReviews={reviews}
     />
   );
 }

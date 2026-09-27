@@ -7,13 +7,14 @@ import {
 import { GenderBannersSection } from '@/components/home/GenderBannersSection';
 import { DynamicProductsCatalog } from '@/components/home/DynamicProductsCatalog';
 import { CustomerReviewsSection } from '@/components/home/CustomerReviewsSection';
-import { Product } from '@/types';
+import { Product, WhatsAppReview } from '@/types';
 
 interface MainContentProps {
   products: Product[];
+  reviews?: WhatsAppReview[];
 }
 
-export function MainContent({ products }: MainContentProps) {
+export function MainContent({ products, reviews }: MainContentProps) {
   return (
     <>
       <div className="container wt-main-intro-container">
@@ -28,7 +29,7 @@ export function MainContent({ products }: MainContentProps) {
         suppressHydrationWarning
       />
       <DynamicProductsCatalog initialProducts={products} />
-      <CustomerReviewsSection />
+      <CustomerReviewsSection initialReviews={reviews} />
       <div
         dangerouslySetInnerHTML={{ __html: MAIN_CONTENT_BOTTOM_HTML }}
         suppressHydrationWarning

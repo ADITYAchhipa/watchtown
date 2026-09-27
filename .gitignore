@@ -31,3 +31,4 @@ next-env.d.ts
 
 # temp db swap files
 data/*.tmp.*
+.agents 
