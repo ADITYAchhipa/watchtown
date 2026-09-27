@@ -1,5 +1,29 @@
 [
   {
+    "name": "Aditya",
+    "brand": "Armani Exchange",
+    "sku": "WT_r",
+    "price": 899000,
+    "originalPrice": 999000,
+    "image": "/uploads/1790498997796-Screenshot_2026-09-26_at_11.02.09_PM.png",
+    "categories": [
+      "Luxury",
+      "Men's Watches",
+      "Automatic"
+    ],
+    "rating": 5,
+    "reviewCount": 10,
+    "badge": "-10%",
+    "url": "https://watchtown.in/product/aditya/",
+    "stock": 5,
+    "inStock": true,
+    "featured": false,
+    "description": "Master crafted luxury timepiece engineered with high-precision automatic movement, scratch-resistant sapphire glass, and stainless steel architecture.",
+    "id": "wt_1790499020116",
+    "createdAt": "2026-09-27T08:50:20.116Z",
+    "updatedAt": "2026-09-27T08:50:20.116Z"
+  },
+  {
     "id": "12906",
     "name": "Coach Delancey Rose Gold Black Dial 36mm",
     "brand": "Coach",

@@ -14,32 +14,44 @@ function ensureDbDirectory() {
   }
 }
 
-// In-memory cache for fast reads in local JSON mode
+// In-memory cache for fast reads in local JSON mode with file mtime validation
 let localCache: Product[] | null = null;
+let lastCacheMtime = 0;
 let mongoSeeded = false;
 
 function readProductsFromFile(): Product[] {
-  if (localCache && localCache.length > 0) return localCache;
-
   ensureDbDirectory();
   if (!fs.existsSync(PRODUCTS_FILE)) {
     fs.writeFileSync(PRODUCTS_FILE, JSON.stringify(SEED_PRODUCTS, null, 2), 'utf8');
     localCache = [...SEED_PRODUCTS];
+    try {
+      lastCacheMtime = fs.statSync(PRODUCTS_FILE).mtimeMs;
+    } catch {
+      lastCacheMtime = Date.now();
+    }
     return localCache;
   }
 
   try {
+    const stat = fs.statSync(PRODUCTS_FILE);
+    if (localCache && localCache.length > 0 && stat.mtimeMs === lastCacheMtime) {
+      return localCache;
+    }
+
     const raw = fs.readFileSync(PRODUCTS_FILE, 'utf8');
     const parsed = JSON.parse(raw) as Product[];
     if ((!parsed || parsed.length === 0) && SEED_PRODUCTS.length > 0) {
       fs.writeFileSync(PRODUCTS_FILE, JSON.stringify(SEED_PRODUCTS, null, 2), 'utf8');
       localCache = [...SEED_PRODUCTS];
+      lastCacheMtime = fs.statSync(PRODUCTS_FILE).mtimeMs;
       return localCache;
     }
     localCache = parsed;
+    lastCacheMtime = stat.mtimeMs;
     return localCache;
   } catch (err) {
     console.error('Failed to read products DB:', err);
+    if (localCache && localCache.length > 0) return localCache;
     localCache = [...SEED_PRODUCTS];
     return localCache;
   }
@@ -47,11 +59,16 @@ function readProductsFromFile(): Product[] {
 
 function writeProductsToFile(products: Product[]): void {
   ensureDbDirectory();
-  localCache = products;
   const tmpFile = `${PRODUCTS_FILE}.tmp.${process.pid}.${crypto.randomBytes(6).toString('hex')}`;
   try {
     fs.writeFileSync(tmpFile, JSON.stringify(products, null, 2), 'utf8');
     fs.renameSync(tmpFile, PRODUCTS_FILE);
+    localCache = products;
+    try {
+      lastCacheMtime = fs.statSync(PRODUCTS_FILE).mtimeMs;
+    } catch {
+      lastCacheMtime = Date.now();
+    }
   } catch (err) {
     try { fs.unlinkSync(tmpFile); } catch { }
     throw err;

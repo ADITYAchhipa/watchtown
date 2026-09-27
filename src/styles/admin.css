@@ -1283,8 +1283,8 @@ tr:last-child td,
   border-radius: 50% !important;
   display: grid !important;
   place-items: center !important;
-  background: #ebe6dc !important;
-  color: #5a5042 !important;
+  background: #f1f5f9 !important;
+  color: var(--ink) !important;
   font-size: 11px !important;
   font-weight: 700 !important;
 }
@@ -2033,13 +2033,13 @@ td.col-product,
 }
 
 .customer-order-card:hover {
-  border-color: #d1c8b8 !important;
+  border-color: #cbd5e1 !important;
   box-shadow: 0 4px 14px rgba(0, 0, 0, 0.04) !important;
 }
 
 .customer-order-header {
   padding: 12px 16px !important;
-  background: #faf8f4 !important;
+  background: #f8fafc !important;
   border-bottom: 1px solid var(--admin-border-subtle) !important;
   display: flex !important;
   justify-content: space-between !important;

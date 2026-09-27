@@ -30,6 +30,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Shield,
+  FileText,
 } from 'lucide-react';
 import { Product, InventoryStats, AuthSession, Order, OrderStats, OrderStatus } from '@/types';
 
@@ -305,29 +306,101 @@ export function AdminDashboardClient({
     }
   };
 
-  // CSV Export: Inventory
-  const exportInventoryToCSV = () => {
-    const headers = ['ID', 'Name', 'SKU', 'Brand', 'Price', 'OriginalPrice', 'Stock', 'Status', 'Badge'];
-    const rows = products.map((p) => [
-      p.id,
-      `"${p.name.replace(/"/g, '""')}"`,
-      p.sku || `WT-${p.id}`,
-      `"${p.brand || 'WatchTown'}"`,
-      p.price,
-      p.originalPrice || '',
-      p.stock ?? 0,
-      (p.stock ?? 0) > 4 ? 'In Stock' : (p.stock ?? 0) > 0 ? 'Low Stock' : 'Out of Stock',
-      p.badge || '',
-    ]);
-    const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map((e) => e.join(','))].join('\n');
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement('a');
-    link.setAttribute('href', encodedUri);
-    link.setAttribute('download', `watchtown_inventory_${new Date().toISOString().slice(0, 10)}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    showToast('Inventory CSV exported');
+  // PDF Export: Inventory
+  const exportInventoryToPDF = async () => {
+    try {
+      const { jsPDF } = await import('jspdf');
+      const autoTableModule = await import('jspdf-autotable');
+      const autoTable = autoTableModule.default || autoTableModule;
+
+      const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(16);
+      doc.setTextColor(15, 23, 42);
+      doc.text('WATCHTOWN LUXURY HOROLOGY', 14, 15);
+
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(9.5);
+      doc.setTextColor(100, 116, 139);
+      doc.text(`Inventory & Products Catalog Report | Generated: ${new Date().toLocaleString('en-IN')}`, 14, 21);
+
+      doc.setFontSize(9);
+      doc.setTextColor(15, 23, 42);
+      doc.text(
+        `Total Products: ${products.length}  |  Total Stock Units: ${stats.totalStock || 0}  |  Valuation: Rs. ${(stats.totalValuation || 0).toLocaleString('en-IN')}`,
+        14,
+        27
+      );
+
+      doc.setDrawColor(185, 144, 58);
+      doc.setLineWidth(0.7);
+      doc.line(14, 30, 283, 30);
+
+      const headers = ['ID', 'SKU', 'Product Name', 'Brand', 'MRP (INR)', 'Stock', 'Status'];
+      const rows = products.map((p) => {
+        const stock = p.stock ?? 0;
+        const status = stock > 4 ? 'In Stock' : stock > 0 ? 'Low Stock' : 'Out of Stock';
+        const mrp = (p.originalPrice || p.price || 0).toLocaleString('en-IN');
+        return [
+          String(p.id),
+          p.sku || `WT-${p.id}`,
+          p.name,
+          p.brand || 'Luxury Horology',
+          `Rs. ${mrp}`,
+          String(stock),
+          status,
+        ];
+      });
+
+      (autoTable as any)(doc, {
+        head: [headers],
+        body: rows,
+        startY: 34,
+        theme: 'grid',
+        styles: {
+          fontSize: 8.5,
+          cellPadding: 2.5,
+          textColor: [15, 23, 42],
+          lineColor: [226, 232, 240],
+          lineWidth: 0.1,
+        },
+        headStyles: {
+          fillColor: [15, 23, 42],
+          textColor: [255, 255, 255],
+          fontStyle: 'bold',
+          fontSize: 9,
+        },
+        alternateRowStyles: {
+          fillColor: [248, 250, 252],
+        },
+        columnStyles: {
+          0: { cellWidth: 16 },
+          1: { cellWidth: 26 },
+          2: { cellWidth: 'auto' },
+          3: { cellWidth: 35 },
+          4: { cellWidth: 32, halign: 'right' },
+          5: { cellWidth: 20, halign: 'center' },
+          6: { cellWidth: 26, halign: 'center' },
+        },
+        didDrawPage: (data: any) => {
+          const pageCount = (doc as any).internal.getNumberOfPages();
+          doc.setFontSize(8);
+          doc.setTextColor(148, 163, 184);
+          doc.text(
+            `Page ${data.pageNumber} of ${pageCount} — Confidential • WatchTown Executive Management Suite`,
+            14,
+            doc.internal.pageSize.height - 8
+          );
+        },
+      });
+
+      doc.save(`watchtown_inventory_${new Date().toISOString().slice(0, 10)}.pdf`);
+      showToast('Inventory PDF exported');
+    } catch (err) {
+      console.error('Failed to export inventory PDF:', err);
+      showToast('Error exporting inventory PDF');
+    }
   };
 
   // CSV Export: Orders
@@ -568,6 +641,97 @@ export function AdminDashboardClient({
         return 0; // latest
       });
   }, [orders, customerSearch, customerSegmentFilter, customerSortBy]);
+
+  // PDF Export: Customers
+  const exportCustomersToPDF = async () => {
+    try {
+      const { jsPDF } = await import('jspdf');
+      const autoTableModule = await import('jspdf-autotable');
+      const autoTable = autoTableModule.default || autoTableModule;
+
+      const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(16);
+      doc.setTextColor(15, 23, 42);
+      doc.text('WATCHTOWN LUXURY HOROLOGY', 14, 15);
+
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(9.5);
+      doc.setTextColor(100, 116, 139);
+      doc.text(`Customer Directory Dossier | Generated: ${new Date().toLocaleString('en-IN')}`, 14, 21);
+
+      const totalSpentAll = customersList.reduce((acc, c) => acc + (c.totalSpent || 0), 0);
+      doc.setFontSize(9);
+      doc.setTextColor(15, 23, 42);
+      doc.text(
+        `Total Customers: ${customersList.length}  |  Cumulative Lifetime Spend: Rs. ${totalSpentAll.toLocaleString('en-IN')}`,
+        14,
+        27
+      );
+
+      doc.setDrawColor(185, 144, 58);
+      doc.setLineWidth(0.7);
+      doc.line(14, 30, 283, 30);
+
+      const headers = ['Customer Name', 'Contact Phone', 'Email Address', 'Destination Location', 'Orders', 'Total Spend (INR)'];
+      const rows = customersList.map((c) => [
+        c.name,
+        c.phone,
+        c.email || '—',
+        c.location || '—',
+        String(c.totalOrders),
+        `Rs. ${(c.totalSpent || 0).toLocaleString('en-IN')}`,
+      ]);
+
+      (autoTable as any)(doc, {
+        head: [headers],
+        body: rows,
+        startY: 34,
+        theme: 'grid',
+        styles: {
+          fontSize: 8.5,
+          cellPadding: 2.5,
+          textColor: [15, 23, 42],
+          lineColor: [226, 232, 240],
+          lineWidth: 0.1,
+        },
+        headStyles: {
+          fillColor: [15, 23, 42],
+          textColor: [255, 255, 255],
+          fontStyle: 'bold',
+          fontSize: 9,
+        },
+        alternateRowStyles: {
+          fillColor: [248, 250, 252],
+        },
+        columnStyles: {
+          0: { cellWidth: 45 },
+          1: { cellWidth: 35 },
+          2: { cellWidth: 55 },
+          3: { cellWidth: 'auto' },
+          4: { cellWidth: 20, halign: 'center' },
+          5: { cellWidth: 35, halign: 'right' },
+        },
+        didDrawPage: (data: any) => {
+          const pageCount = (doc as any).internal.getNumberOfPages();
+          doc.setFontSize(8);
+          doc.setTextColor(148, 163, 184);
+          doc.text(
+            `Page ${data.pageNumber} of ${pageCount} — Confidential • WatchTown Customer Relations Dossier`,
+            14,
+            doc.internal.pageSize.height - 8
+          );
+        },
+      });
+
+      doc.save(`watchtown_customers_${new Date().toISOString().slice(0, 10)}.pdf`);
+      showToast('Customer PDF exported');
+    } catch (err) {
+      console.error('Failed to export customer PDF:', err);
+      showToast('Error exporting customer PDF');
+    }
+  };
 
   // Analytics derived metrics
   const totalPhysicalUnits = stats.totalStock || products.reduce((acc, p) => acc + (p.stock ?? 0), 0);
@@ -1081,9 +1245,9 @@ export function AdminDashboardClient({
                   <RefreshCw size={15} className={loading ? 'animate-spin' : ''} />
                 </button>
 
-                <button type="button" className="btn" onClick={exportInventoryToCSV}>
-                  <Download size={14} />
-                  <span>Export CSV</span>
+                <button type="button" className="btn" onClick={exportInventoryToPDF}>
+                  <FileText size={14} />
+                  <span>Export PDF</span>
                 </button>
 
                 <button
@@ -1110,8 +1274,8 @@ export function AdminDashboardClient({
                           />
                         </th>
                         <th className="col-product">Product &amp; SKU</th>
-                        <th className="col-desktop">Brand &amp; Category</th>
-                        <th className="col-desktop">Price / Regular</th>
+                        <th className="col-desktop">Brand</th>
+                        <th className="col-desktop">MRP</th>
                         <th className="col-desktop" style={{ textAlign: 'center' }}>Stock Adjustment</th>
                         <th className="col-stock">Stock &amp; Status</th>
                         <th className="col-actions">Actions</th>
@@ -1191,7 +1355,7 @@ export function AdminDashboardClient({
                                     </div>
                                     <div className="product-sku">{p.sku || `WT-${p.id}`}</div>
                                     <div className="mobile-only" style={{ marginTop: 2, fontSize: 11, fontWeight: 700, color: 'var(--admin-gold)' }}>
-                                      ₹{p.price.toLocaleString('en-IN')}
+                                      MRP: ₹{(p.originalPrice || p.price).toLocaleString('en-IN')}
                                     </div>
                                   </div>
                                 </div>
@@ -1199,16 +1363,10 @@ export function AdminDashboardClient({
 
                               <td className="col-desktop">
                                 <div className="product-brand">{p.brand || 'Luxury Watch'}</div>
-                                {p.categories && p.categories.length > 0 && (
-                                  <span className="product-tag">{p.categories[0]}</span>
-                                )}
                               </td>
 
                               <td className="col-desktop">
-                                <div className="product-price">₹{p.price.toLocaleString('en-IN')}</div>
-                                {p.originalPrice && p.originalPrice > p.price && (
-                                  <div className="product-old-price">₹{p.originalPrice.toLocaleString('en-IN')}</div>
-                                )}
+                                <div className="product-price">₹{(p.originalPrice || p.price).toLocaleString('en-IN')}</div>
                               </td>
 
                               <td className="col-desktop" style={{ textAlign: 'center' }}>
@@ -2283,30 +2441,10 @@ export function AdminDashboardClient({
                 <button
                   type="button"
                   className="btn"
-                  onClick={() => {
-                    const headers = ['Name', 'Email', 'Phone', 'Location', 'Orders', 'Total Spent', 'Segment'];
-                    const rows = customersList.map((c) => [
-                      `"${c.name}"`,
-                      c.email,
-                      c.phone,
-                      `"${c.location}"`,
-                      c.totalOrders,
-                      c.totalSpent,
-                      c.segment,
-                    ]);
-                    const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map((r) => r.join(','))].join('\n');
-                    const encodedUri = encodeURI(csvContent);
-                    const link = document.createElement('a');
-                    link.setAttribute('href', encodedUri);
-                    link.setAttribute('download', `watchtown_customers_${new Date().toISOString().slice(0, 10)}.csv`);
-                    document.body.appendChild(link);
-                    link.click();
-                    document.body.removeChild(link);
-                    showToast('Customer CSV exported');
-                  }}
+                  onClick={exportCustomersToPDF}
                 >
-                  <Download size={14} />
-                  <span>Export Customers</span>
+                  <FileText size={14} />
+                  <span>Export PDF</span>
                 </button>
               </div>
 
@@ -2320,7 +2458,6 @@ export function AdminDashboardClient({
                         <th className="col-desktop">Location</th>
                         <th className="col-desktop">Total Orders</th>
                         <th className="col-desktop">Total Spend</th>
-                        <th>Segment Badge</th>
                         <th className="col-actions">Actions</th>
                       </tr>
                     </thead>
@@ -2329,7 +2466,7 @@ export function AdminDashboardClient({
                         <tr key={i}>
                           <td>
                             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                              <div className="admin-user-avatar" style={{ background: '#f2ece0' }}>
+                              <div className="admin-user-avatar" style={{ background: '#f1f5f9', color: 'var(--admin-ink)' }}>
                                 {c.name.split(' ').map((n) => n[0]).join('').slice(0, 2).toUpperCase()}
                               </div>
                               <div>
@@ -2349,19 +2486,6 @@ export function AdminDashboardClient({
                           </td>
                           <td className="col-desktop">
                             <div className="product-price">₹{c.totalSpent.toLocaleString('en-IN')}</div>
-                          </td>
-                          <td>
-                            <span
-                              className={`pill ${
-                                c.segment === 'VIP'
-                                  ? 'pending'
-                                  : c.segment === 'Repeat'
-                                  ? 'confirmed'
-                                  : 'delivered'
-                              }`}
-                            >
-                              {c.segment}
-                            </span>
                           </td>
                           <td className="col-actions">
                             <button
@@ -3100,8 +3224,8 @@ function CustomerModal({ customer, onClose, onSelectOrder }: CustomerModalProps)
                 width: 52,
                 height: 52,
                 borderRadius: '50%',
-                background: 'linear-gradient(135deg, rgba(212, 175, 55, 0.2), rgba(179, 139, 67, 0.35))',
-                border: '1.5px solid var(--admin-gold)',
+                background: 'var(--admin-gold-soft)',
+                border: '1.5px solid rgba(185, 144, 58, 0.35)',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
@@ -3131,24 +3255,28 @@ function CustomerModal({ customer, onClose, onSelectOrder }: CustomerModalProps)
                     letterSpacing: '0.06em',
                     background:
                       customer.segment === 'VIP'
-                        ? 'rgba(212, 175, 55, 0.18)'
+                        ? 'var(--admin-gold-soft)'
                         : customer.segment === 'Repeat'
-                        ? 'rgba(34, 197, 94, 0.14)'
+                        ? 'var(--admin-green-soft)'
                         : customer.segment === 'New'
-                        ? 'rgba(59, 130, 246, 0.14)'
-                        : 'rgba(15, 23, 42, 0.08)',
+                        ? 'var(--admin-blue-soft)'
+                        : '#f1f5f9',
                     color:
                       customer.segment === 'VIP'
-                        ? '#927019'
+                        ? 'var(--admin-gold)'
                         : customer.segment === 'Repeat'
-                        ? '#15803d'
+                        ? 'var(--admin-green)'
                         : customer.segment === 'New'
-                        ? '#1d4ed8'
+                        ? 'var(--admin-blue)'
                         : '#475569',
                     border:
                       customer.segment === 'VIP'
-                        ? '1px solid rgba(212, 175, 55, 0.35)'
-                        : '1px solid transparent',
+                        ? '1px solid rgba(185, 144, 58, 0.3)'
+                        : customer.segment === 'Repeat'
+                        ? '1px solid rgba(16, 185, 129, 0.25)'
+                        : customer.segment === 'New'
+                        ? '1px solid rgba(37, 99, 235, 0.25)'
+                        : '1px solid #e2e8f0',
                   }}
                 >
                   {customer.segment} Patron
@@ -3170,15 +3298,15 @@ function CustomerModal({ customer, onClose, onSelectOrder }: CustomerModalProps)
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
           {/* Executive KPI Stats (4 Cards) */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10 }}>
-            <div style={{ background: '#fcfaf6', border: '1px solid var(--admin-border)', borderRadius: 10, padding: 12 }}>
+            <div style={{ background: '#ffffff', border: '1px solid var(--admin-border)', borderRadius: 10, padding: 12, boxShadow: 'var(--shadow-sm)' }}>
               <div style={{ fontSize: 10, color: 'var(--admin-muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
                 Lifetime Purchases
               </div>
-              <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--admin-ink)', marginTop: 4, fontFamily: 'serif' }}>
+              <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--admin-ink)', marginTop: 4 }}>
                 ₹{totalSpent.toLocaleString('en-IN')}
               </div>
             </div>
-            <div style={{ background: '#fcfaf6', border: '1px solid var(--admin-border)', borderRadius: 10, padding: 12 }}>
+            <div style={{ background: '#ffffff', border: '1px solid var(--admin-border)', borderRadius: 10, padding: 12, boxShadow: 'var(--shadow-sm)' }}>
               <div style={{ fontSize: 10, color: 'var(--admin-muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
                 Orders Placed
               </div>
@@ -3186,7 +3314,7 @@ function CustomerModal({ customer, onClose, onSelectOrder }: CustomerModalProps)
                 {ordersList.length || customer.totalOrders}
               </div>
             </div>
-            <div style={{ background: '#fcfaf6', border: '1px solid var(--admin-border)', borderRadius: 10, padding: 12 }}>
+            <div style={{ background: '#ffffff', border: '1px solid var(--admin-border)', borderRadius: 10, padding: 12, boxShadow: 'var(--shadow-sm)' }}>
               <div style={{ fontSize: 10, color: 'var(--admin-muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
                 Watches Acquired
               </div>
@@ -3194,18 +3322,18 @@ function CustomerModal({ customer, onClose, onSelectOrder }: CustomerModalProps)
                 {totalPieces}
               </div>
             </div>
-            <div style={{ background: '#fcfaf6', border: '1px solid var(--admin-border)', borderRadius: 10, padding: 12 }}>
+            <div style={{ background: '#ffffff', border: '1px solid var(--admin-border)', borderRadius: 10, padding: 12, boxShadow: 'var(--shadow-sm)' }}>
               <div style={{ fontSize: 10, color: 'var(--admin-muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
                 Avg Order Ticket
               </div>
-              <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--admin-ink)', marginTop: 4, fontFamily: 'serif' }}>
+              <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--admin-ink)', marginTop: 4 }}>
                 ₹{avgTicket.toLocaleString('en-IN')}
               </div>
             </div>
           </div>
 
           {/* Contact & Shipping Dossier */}
-          <div style={{ background: '#ffffff', border: '1px solid var(--admin-border)', borderRadius: 10, padding: 14 }}>
+          <div style={{ background: '#ffffff', border: '1px solid var(--admin-border)', borderRadius: 10, padding: 14, boxShadow: 'var(--shadow-sm)' }}>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
               <div>
                 <div style={{ fontSize: 11, color: 'var(--admin-muted)', marginBottom: 2 }}>Direct Contact Phone</div>
@@ -3248,7 +3376,7 @@ function CustomerModal({ customer, onClose, onSelectOrder }: CustomerModalProps)
                 </div>
               </div>
 
-              <div style={{ gridColumn: '1 / -1', borderTop: '1px dashed var(--admin-border)', paddingTop: 10, marginTop: 2 }}>
+              <div style={{ gridColumn: '1 / -1', borderTop: '1px solid var(--admin-border-subtle)', paddingTop: 10, marginTop: 2 }}>
                 <div style={{ fontSize: 11, color: 'var(--admin-muted)', marginBottom: 2 }}>Primary Shipping Address</div>
                 <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--admin-ink)', display: 'flex', alignItems: 'flex-start', gap: 6 }}>
                   <MapPin size={15} style={{ color: 'var(--admin-gold)', flexShrink: 0, marginTop: 2 }} />
@@ -3281,7 +3409,7 @@ function CustomerModal({ customer, onClose, onSelectOrder }: CustomerModalProps)
             </div>
 
             {ordersList.length === 0 ? (
-              <div style={{ padding: '30px 16px', textAlign: 'center', background: '#fcfaf6', borderRadius: 10, border: '1px solid var(--admin-border)', color: 'var(--admin-muted)', fontSize: 13 }}>
+              <div style={{ padding: '30px 16px', textAlign: 'center', background: '#f8fafc', borderRadius: 10, border: '1px solid var(--admin-border)', color: 'var(--admin-muted)', fontSize: 13 }}>
                 No active orders recorded for this collector.
               </div>
             ) : (
@@ -3305,8 +3433,9 @@ function CustomerModal({ customer, onClose, onSelectOrder }: CustomerModalProps)
                               fontWeight: 600,
                               padding: '2px 7px',
                               borderRadius: 4,
-                              background: ord.paymentMethod === 'cod' ? '#fef3c7' : '#dcfce7',
-                              color: ord.paymentMethod === 'cod' ? '#92400e' : '#166534',
+                              background: ord.paymentMethod === 'cod' ? 'var(--admin-amber-soft)' : 'var(--admin-green-soft)',
+                              color: ord.paymentMethod === 'cod' ? 'var(--admin-amber)' : 'var(--admin-green)',
+                              border: ord.paymentMethod === 'cod' ? '1px solid rgba(245, 158, 11, 0.2)' : '1px solid rgba(16, 185, 129, 0.2)',
                               textTransform: 'uppercase',
                             }}
                           >
@@ -3316,7 +3445,7 @@ function CustomerModal({ customer, onClose, onSelectOrder }: CustomerModalProps)
 
                         <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
                           <div style={{ textAlign: 'right' }}>
-                            <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--admin-ink)', fontFamily: 'serif' }}>
+                            <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--admin-ink)' }}>
                               ₹{orderTotal.toLocaleString('en-IN')}
                             </div>
                             <div style={{ fontSize: 10, color: 'var(--admin-muted)' }}>
@@ -3378,7 +3507,7 @@ function CustomerModal({ customer, onClose, onSelectOrder }: CustomerModalProps)
                                     borderRadius: 8,
                                     display: 'grid',
                                     placeItems: 'center',
-                                    background: '#f8f5ee',
+                                    background: '#f8fafc',
                                     border: '1px solid rgba(0,0,0,0.08)',
                                   }}
                                 >
@@ -3391,7 +3520,7 @@ function CustomerModal({ customer, onClose, onSelectOrder }: CustomerModalProps)
                                   {it.name}
                                 </div>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 3 }}>
-                                  <span style={{ fontSize: 10, fontWeight: 700, padding: '1px 6px', background: '#f5efe4', color: '#927019', borderRadius: 4 }}>
+                                  <span style={{ fontSize: 10, fontWeight: 700, padding: '1px 6px', background: 'var(--admin-gold-soft)', color: 'var(--admin-gold)', border: '1px solid rgba(185, 144, 58, 0.2)', borderRadius: 4 }}>
                                     {it.brand || 'Luxury Horology'}
                                   </span>
                                   {it.productId && (
@@ -3422,7 +3551,7 @@ function CustomerModal({ customer, onClose, onSelectOrder }: CustomerModalProps)
                       <div
                         style={{
                           padding: '10px 16px',
-                          background: '#faf8f4',
+                          background: '#f8fafc',
                           borderTop: '1px solid var(--admin-border-subtle)',
                           display: 'flex',
                           justifyContent: 'space-between',
@@ -3452,7 +3581,7 @@ function CustomerModal({ customer, onClose, onSelectOrder }: CustomerModalProps)
         </div>
 
         <div className="modal-footer" style={{ marginTop: 20 }}>
-          <button type="button" className="btn btn-gold" onClick={onClose}>
+          <button type="button" className="btn btn-dark" onClick={onClose}>
             Done
           </button>
         </div>

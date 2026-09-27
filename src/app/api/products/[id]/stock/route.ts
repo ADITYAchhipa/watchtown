@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { revalidatePath } from 'next/cache';
 import { updateStock } from '@/lib/db';
 import { getSession } from '@/lib/auth';
 
@@ -46,6 +47,15 @@ export async function PATCH(
 
     if (!updated) {
       return NextResponse.json({ error: 'Product not found.' }, { status: 404 });
+    }
+
+    try {
+      revalidatePath('/', 'page');
+      revalidatePath('/shop', 'page');
+      revalidatePath('/admin', 'page');
+      revalidatePath(`/product/${id}`, 'page');
+    } catch (e) {
+      console.warn('Revalidation warning:', e);
     }
 
     return NextResponse.json({

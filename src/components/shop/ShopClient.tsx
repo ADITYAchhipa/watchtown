@@ -30,7 +30,7 @@ export function ShopClient({
 }: ShopClientProps) {
   const { addToCart } = useCart();
   const { toggleWishlist, isInWishlist } = useWishlist();
-  const [products] = useState<Product[]>(initialProducts);
+  const products = initialProducts;
 
   // Filters
   const [search, setSearch] = useState(initialSearch);
@@ -90,7 +90,7 @@ export function ShopClient({
             return new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime();
         }
       });
-  }, [products, search, selectedBrand, priceRange, inStockOnly, sortBy]);
+  }, [products, search, selectedBrand, selectedCategory, priceRange, inStockOnly, sortBy]);
 
   const handleAddToCart = (product: Product, e: React.MouseEvent) => {
     e.preventDefault();

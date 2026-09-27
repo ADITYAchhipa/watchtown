@@ -29,7 +29,7 @@ interface DynamicProductsCatalogProps {
 export function DynamicProductsCatalog({ initialProducts }: DynamicProductsCatalogProps) {
   const { addToCart } = useCart();
   const { isInWishlist, toggleWishlist } = useWishlist();
-  const [products] = useState<Product[]>(initialProducts);
+  const products = initialProducts;
   const [activeTab, setActiveTab] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [addedId, setAddedId] = useState<string | number | null>(null);
@@ -39,17 +39,36 @@ export function DynamicProductsCatalog({ initialProducts }: DynamicProductsCatal
     return null;
   }
 
-  // Tabs
-  const TABS = [
-    { id: 'all', label: 'All Watches' },
-    { id: 'rolex', label: 'Rolex' },
-    { id: 'audemars piguet', label: 'Audemars Piguet' },
-    { id: 'patek philippe', label: 'Patek Philippe' },
-    { id: 'omega', label: 'Omega' },
-    { id: 'tag heuer', label: 'Tag Heuer' },
-    { id: 'automatic', label: 'Automatic' },
-    { id: 'under_3000', label: 'Under ₹3,000' },
-  ];
+  // Tabs: Core luxury brands + any other brands present in catalog + filter categories
+  const TABS = useMemo(() => {
+    const coreTabs = [
+      { id: 'all', label: 'All Watches' },
+      { id: 'rolex', label: 'Rolex' },
+      { id: 'audemars piguet', label: 'Audemars Piguet' },
+      { id: 'patek philippe', label: 'Patek Philippe' },
+      { id: 'omega', label: 'Omega' },
+      { id: 'tag heuer', label: 'Tag Heuer' },
+    ];
+    const registeredIds = new Set(coreTabs.slice(1).map((t) => t.id));
+    const dynamicBrandTabs: { id: string; label: string }[] = [];
+
+    products.forEach((p) => {
+      if (p.brand) {
+        const id = p.brand.trim().toLowerCase();
+        if (!registeredIds.has(id)) {
+          registeredIds.add(id);
+          dynamicBrandTabs.push({ id, label: p.brand.trim() });
+        }
+      }
+    });
+
+    return [
+      ...coreTabs,
+      ...dynamicBrandTabs,
+      { id: 'automatic', label: 'Automatic' },
+      { id: 'under_3000', label: 'Under ₹3,000' },
+    ];
+  }, [products]);
 
   const filteredProducts = useMemo(() => {
     return products.filter((p) => {
