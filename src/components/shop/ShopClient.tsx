@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { Product } from '@/types';
 import { useCart } from '@/context/CartContext';
 import { useWishlist } from '@/context/WishlistContext';
-import { Search, ShoppingBag, Eye, Star, Filter, X, CheckCircle2, AlertTriangle, ArrowUpDown, Heart } from 'lucide-react';
+import { Search, ShoppingBag, Eye, Star, Filter, X, CheckCircle2, AlertTriangle, ArrowUpDown, Heart, Shuffle } from 'lucide-react';
 
 interface ShopClientProps {
   initialProducts: Product[];
@@ -376,188 +376,119 @@ export function ShopClient({
             <div
               style={{
                 display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))',
+                gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))',
                 gap: 24,
               }}
             >
               {filteredProducts.map((product) => {
                 const stock = product.stock ?? 0;
                 const isOutOfStock = stock <= 0;
-                const isLowStock = stock > 0 && stock <= 4;
                 const isJustAdded = addedId === product.id;
+
+                const discountPercent =
+                  product.originalPrice && product.originalPrice > product.price
+                    ? Math.round(((product.originalPrice - product.price) / product.originalPrice) * 100)
+                    : 33;
+
+                const originalPriceFormatted = product.originalPrice
+                  ? `₹${product.originalPrice.toLocaleString('en-IN')}.00`
+                  : `₹${(Math.round(product.price * 1.5)).toLocaleString('en-IN')}.00`;
+
+                const priceFormatted = `₹${product.price.toLocaleString('en-IN')}.00`;
 
                 return (
                   <div
                     key={product.id}
-                    style={{
-                      background: '#ffffff',
-                      border: '1px solid #e5e7eb',
-                      borderRadius: 12,
-                      overflow: 'hidden',
-                      display: 'flex',
-                      flexDirection: 'column',
-                      position: 'relative',
-                      transition: 'transform 0.2s ease, box-shadow 0.2s ease',
-                    }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.transform = 'translateY(-4px)';
-                      e.currentTarget.style.boxShadow = '0 12px 24px -6px rgba(0,0,0,0.1)';
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.transform = 'none';
-                      e.currentTarget.style.boxShadow = 'none';
-                    }}
+                    className="wt-premium-product-card"
                   >
-                    {/* Badge */}
-                    <div style={{ position: 'absolute', top: 12, left: 12, zIndex: 2, display: 'flex', flexDirection: 'column', gap: 4 }}>
-                      {product.badge && (
-                        <span
-                          style={{
-                            background: '#e11d48',
-                            color: '#ffffff',
-                            fontWeight: 800,
-                            fontSize: 10,
-                            padding: '3px 7px',
-                            borderRadius: 4,
+                    {/* Media Frame */}
+                    <div className="wt-card-media-box">
+                      {/* Green Discount Badge */}
+                      <span className="wt-card-discount-pill">
+                        -{discountPercent}%
+                      </span>
+
+                      {/* Action Capsule */}
+                      <div className="wt-card-action-capsule">
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
                           }}
+                          className="wt-capsule-btn"
+                          title="Compare Watch"
+                          aria-label="Compare"
                         >
-                          {product.badge}
-                        </span>
-                      )}
-                      {isLowStock && (
-                        <span
-                          style={{
-                            background: '#f59e0b',
-                            color: '#ffffff',
-                            fontWeight: 700,
-                            fontSize: 10,
-                            padding: '3px 7px',
-                            borderRadius: 4,
-                          }}
-                        >
-                          Only {stock} Left
-                        </span>
-                      )}
-                    </div>
+                          <Shuffle size={15} />
+                        </button>
 
-                    {/* Wishlist Button */}
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        toggleWishlist(product);
-                      }}
-                      style={{
-                        position: 'absolute',
-                        top: 12,
-                        right: 12,
-                        zIndex: 3,
-                        width: 32,
-                        height: 32,
-                        borderRadius: '50%',
-                        background: 'rgba(255, 255, 255, 0.9)',
-                        border: '1px solid #e5e7eb',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        color: isInWishlist(product.id) ? '#e11d48' : '#6b7280',
-                        cursor: 'pointer',
-                        boxShadow: '0 2px 6px rgba(0,0,0,0.08)',
-                      }}
-                      title={isInWishlist(product.id) ? 'Remove from Wishlist' : 'Add to Wishlist'}
-                    >
-                      <Heart size={16} fill={isInWishlist(product.id) ? '#e11d48' : 'none'} />
-                    </button>
-
-                    {/* Image */}
-                    <Link
-                      href={`/product/${product.id}`}
-                      style={{
-                        position: 'relative',
-                        paddingTop: '100%',
-                        background: '#f9fafb',
-                        display: 'block',
-                      }}
-                    >
-                      <img
-                        src={product.image}
-                        alt={product.name}
-                        style={{
-                          position: 'absolute',
-                          top: 0,
-                          left: 0,
-                          width: '100%',
-                          height: '100%',
-                          objectFit: 'cover',
-                        }}
-                      />
-                    </Link>
-
-                    {/* Body */}
-                    <div style={{ padding: 16, display: 'flex', flexDirection: 'column', flex: 1, justifyContent: 'space-between' }}>
-                      <div>
-                        <div style={{ fontSize: 11, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', marginBottom: 4 }}>
-                          {product.brand}
-                        </div>
                         <Link
                           href={`/product/${product.id}`}
-                          style={{ textDecoration: 'none', color: '#111827' }}
+                          className="wt-capsule-btn"
+                          title="Quick View"
+                          aria-label="Quick View"
                         >
-                          <h3
-                            style={{
-                              fontSize: 14,
-                              fontWeight: 600,
-                              margin: '0 0 8px 0',
-                              lineHeight: 1.4,
-                              display: '-webkit-box',
-                              WebkitLineClamp: 2,
-                              WebkitBoxOrient: 'vertical',
-                              overflow: 'hidden',
-                              height: 38,
-                            }}
-                          >
-                            {product.name}
-                          </h3>
+                          <Search size={15} />
                         </Link>
+
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            toggleWishlist(product);
+                          }}
+                          className={`wt-capsule-btn ${isInWishlist(product.id) ? 'active-wishlist' : ''}`}
+                          title={isInWishlist(product.id) ? 'Remove from Wishlist' : 'Add to Wishlist'}
+                          aria-label="Wishlist"
+                        >
+                          <Heart
+                            size={15}
+                            fill={isInWishlist(product.id) ? '#e11d48' : 'none'}
+                            color={isInWishlist(product.id) ? '#e11d48' : 'currentColor'}
+                          />
+                        </button>
                       </div>
 
-                      <div>
-                        <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 14 }}>
-                          <span style={{ fontSize: 18, fontWeight: 800, color: '#111827' }}>
-                            ₹{product.price.toLocaleString('en-IN')}
-                          </span>
-                          {product.originalPrice && (
-                            <span style={{ fontSize: 13, color: '#9ca3af', textDecoration: 'line-through' }}>
-                              ₹{product.originalPrice.toLocaleString('en-IN')}
-                            </span>
-                          )}
-                        </div>
+                      {/* Product Image Link */}
+                      <Link
+                        href={`/product/${product.id}`}
+                        className="wt-card-img-link"
+                      >
+                        <img
+                          src={product.image}
+                          alt={product.name}
+                          className="wt-card-product-img"
+                        />
+                      </Link>
 
-                        <div style={{ display: 'flex', gap: 8 }}>
-                          <button
-                            onClick={(e) => handleAddToCart(product, e)}
-                            disabled={isOutOfStock}
-                            style={{
-                              flex: 1,
-                              padding: '10px',
-                              borderRadius: 6,
-                              border: 'none',
-                              background: isOutOfStock ? '#e5e7eb' : isJustAdded ? '#10b981' : '#000000',
-                              color: isOutOfStock ? '#9ca3af' : '#ffffff',
-                              fontWeight: 700,
-                              fontSize: 13,
-                              cursor: isOutOfStock ? 'not-allowed' : 'pointer',
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              gap: 6,
-                            }}
-                          >
-                            <ShoppingBag size={14} />
-                            {isOutOfStock ? 'Out of Stock' : isJustAdded ? 'Added ✓' : 'Add to Cart'}
-                          </button>
-                        </div>
+                      {/* Gold Add To Cart Bar */}
+                      <button
+                        type="button"
+                        onClick={(e) => handleAddToCart(product, e)}
+                        disabled={isOutOfStock}
+                        className="wt-card-cart-gold-bar"
+                      >
+                        {isOutOfStock ? 'Out of Stock' : isJustAdded ? 'Added ✓' : 'Add To Cart'}
+                      </button>
+                    </div>
+
+                    {/* Product Title & Prices */}
+                    <div className="wt-card-bottom-info">
+                      <h3 className="wt-card-title">
+                        <Link href={`/product/${product.id}`}>
+                          {product.name}
+                        </Link>
+                      </h3>
+
+                      <div className="wt-card-price-row">
+                        <span className="wt-card-old-price">
+                          {originalPriceFormatted}
+                        </span>
+                        <span className="wt-card-current-price">
+                          {priceFormatted}
+                        </span>
                       </div>
                     </div>
                   </div>

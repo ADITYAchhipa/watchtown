@@ -19,6 +19,7 @@ import {
   ArrowRight,
   Heart,
   ExternalLink,
+  Shuffle,
 } from 'lucide-react';
 
 interface DynamicProductsCatalogProps {
@@ -243,328 +244,140 @@ export function DynamicProductsCatalog({ initialProducts }: DynamicProductsCatal
           <div
             style={{
               display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))',
+              gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))',
               gap: 24,
             }}
           >
             {filteredProducts.map((product) => {
               const stock = product.stock ?? 0;
               const isOutOfStock = stock <= 0;
-              const isLowStock = stock > 0 && stock <= 4;
               const isJustAdded = addedId === product.id;
+
+              // Calculate discount percentage
+              const discountPercent =
+                product.originalPrice && product.originalPrice > product.price
+                  ? Math.round(((product.originalPrice - product.price) / product.originalPrice) * 100)
+                  : 33;
+
+              const originalPriceFormatted = product.originalPrice
+                ? `₹${product.originalPrice.toLocaleString('en-IN')}.00`
+                : `₹${(Math.round(product.price * 1.5)).toLocaleString('en-IN')}.00`;
+
+              const priceFormatted = `₹${product.price.toLocaleString('en-IN')}.00`;
 
               return (
                 <div
                   key={product.id}
-                  style={{
-                    background: '#ffffff',
-                    border: '1px solid #e5e7eb',
-                    borderRadius: 12,
-                    overflow: 'hidden',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    position: 'relative',
-                    transition: 'transform 0.2s ease, box-shadow 0.2s ease',
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.transform = 'translateY(-4px)';
-                    e.currentTarget.style.boxShadow = '0 12px 24px -6px rgba(0,0,0,0.1)';
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.transform = 'none';
-                    e.currentTarget.style.boxShadow = 'none';
-                  }}
+                  className="wt-premium-product-card"
                 >
-                  {/* Badges */}
-                  <div
-                    style={{
-                      position: 'absolute',
-                      top: 12,
-                      left: 12,
-                      display: 'flex',
-                      flexDirection: 'column',
-                      gap: 6,
-                      zIndex: 2,
-                    }}
-                  >
-                    {product.badge && (
-                      <span
-                        style={{
-                          background: '#e11d48',
-                          color: '#ffffff',
-                          fontWeight: 800,
-                          fontSize: 11,
-                          padding: '3px 8px',
-                          borderRadius: 4,
-                          letterSpacing: 0.5,
-                        }}
-                      >
-                        {product.badge}
-                      </span>
-                    )}
-                    {isLowStock && (
-                      <span
-                        style={{
-                          background: '#f59e0b',
-                          color: '#ffffff',
-                          fontWeight: 700,
-                          fontSize: 10,
-                          padding: '3px 7px',
-                          borderRadius: 4,
-                        }}
-                      >
-                        ONLY {stock} LEFT!
-                      </span>
-                    )}
-                    {isOutOfStock && (
-                      <span
-                        style={{
-                          background: '#6b7280',
-                          color: '#ffffff',
-                          fontWeight: 700,
-                          fontSize: 10,
-                          padding: '3px 7px',
-                          borderRadius: 4,
-                        }}
-                      >
-                        OUT OF STOCK
-                      </span>
-                    )}
-                  </div>
+                  {/* Media Frame with Black / Watch Background */}
+                  <div className="wt-card-media-box">
+                    {/* Green Discount Badge on Top-Left */}
+                    <span className="wt-card-discount-pill">
+                      -{discountPercent}%
+                    </span>
 
-                  {/* Action Buttons: Wishlist & Quick View */}
-                  <div
-                    style={{
-                      position: 'absolute',
-                      top: 12,
-                      right: 12,
-                      display: 'flex',
-                      flexDirection: 'column',
-                      gap: 6,
-                      zIndex: 3,
-                    }}
-                  >
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        toggleWishlist(product);
-                      }}
-                      style={{
-                        background: 'rgba(255, 255, 255, 0.9)',
-                        border: '1px solid #e5e7eb',
-                        borderRadius: '50%',
-                        width: 34,
-                        height: 34,
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        cursor: 'pointer',
-                        color: isInWishlist(product.id) ? '#e11d48' : '#6b7280',
-                        boxShadow: '0 2px 8px rgba(0,0,0,0.12)',
-                        transition: 'all 0.2s ease',
-                      }}
-                      title={isInWishlist(product.id) ? 'Remove from Wishlist' : 'Add to Wishlist'}
-                    >
-                      <Heart size={16} fill={isInWishlist(product.id) ? '#e11d48' : 'none'} />
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        setQuickViewProduct(product);
-                      }}
-                      style={{
-                        background: 'rgba(255, 255, 255, 0.9)',
-                        border: '1px solid #e5e7eb',
-                        borderRadius: '50%',
-                        width: 34,
-                        height: 34,
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        cursor: 'pointer',
-                        color: '#111827',
-                        boxShadow: '0 2px 8px rgba(0,0,0,0.12)',
-                        transition: 'all 0.2s ease',
-                      }}
-                      title="Quick preview"
-                    >
-                      <Eye size={16} />
-                    </button>
-                  </div>
-
-                  {/* Thumbnail */}
-                  <Link
-                    href={`/product/${product.id}`}
-                    style={{
-                      position: 'relative',
-                      paddingTop: '100%',
-                      background: '#f9fafb',
-                      overflow: 'hidden',
-                      display: 'block',
-                      cursor: 'pointer',
-                    }}
-                  >
-                    <img
-                      src={
-                        product.image ||
-                        'https://watchtown.in/wp-content/uploads/2025/11/Coach-Delancey-Rose-Gold-Black-Dial-36mm-1-600x600.jpg'
-                      }
-                      alt={product.name}
-                      style={{
-                        position: 'absolute',
-                        top: 0,
-                        left: 0,
-                        width: '100%',
-                        height: '100%',
-                        objectFit: 'cover',
-                        transition: 'transform 0.35s ease',
-                      }}
-                      onError={(e) => {
-                        (e.target as HTMLImageElement).src =
-                          'https://watchtown.in/wp-content/uploads/2025/11/Coach-Delancey-Rose-Gold-Black-Dial-36mm-1-600x600.jpg';
-                      }}
-                    />
-                  </Link>
-
-                  {/* Content */}
-                  <div
-                    style={{
-                      padding: 16,
-                      display: 'flex',
-                      flexDirection: 'column',
-                      flex: 1,
-                      justifyContent: 'space-between',
-                    }}
-                  >
-                    <div>
-                      <div
-                        style={{
-                          fontSize: 11,
-                          fontWeight: 700,
-                          color: '#9ca3af',
-                          textTransform: 'uppercase',
-                          letterSpacing: 0.5,
-                          marginBottom: 4,
+                    {/* Action Capsule on Top-Right */}
+                    <div className="wt-card-action-capsule">
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
                         }}
+                        className="wt-capsule-btn"
+                        title="Compare Watch"
+                        aria-label="Compare"
                       >
-                        {product.brand || 'Luxury Watch'}
-                      </div>
+                        <Shuffle size={15} />
+                      </button>
 
-                      <h3
-                        style={{
-                          fontSize: 14,
-                          fontWeight: 600,
-                          margin: '0 0 8px 0',
-                          lineHeight: 1.4,
-                          display: '-webkit-box',
-                          WebkitLineClamp: 2,
-                          WebkitBoxOrient: 'vertical',
-                          overflow: 'hidden',
-                          height: 38,
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          setQuickViewProduct(product);
                         }}
+                        className="wt-capsule-btn"
+                        title="Quick Preview"
+                        aria-label="Quick Preview"
                       >
-                        <Link
-                          href={`/product/${product.id}`}
-                          style={{
-                            color: '#111827',
-                            textDecoration: 'none',
-                          }}
-                        >
-                          {product.name}
-                        </Link>
-                      </h3>
+                        <Search size={15} />
+                      </button>
 
-                      {/* Stars */}
-                      <div
-                        style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: 4,
-                          marginBottom: 10,
-                          fontSize: 12,
-                          color: '#d97706',
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          toggleWishlist(product);
                         }}
+                        className={`wt-capsule-btn ${isInWishlist(product.id) ? 'active-wishlist' : ''}`}
+                        title={isInWishlist(product.id) ? 'Remove from Wishlist' : 'Add to Wishlist'}
+                        aria-label="Wishlist"
                       >
-                        <Star size={13} fill="#f59e0b" color="#f59e0b" />
-                        <span style={{ fontWeight: 700 }}>{product.rating || '5.0'}</span>
-                        <span style={{ color: '#9ca3af' }}>({product.reviewCount || 12})</span>
-                      </div>
+                        <Heart
+                          size={15}
+                          fill={isInWishlist(product.id) ? '#e11d48' : 'none'}
+                          color={isInWishlist(product.id) ? '#e11d48' : 'currentColor'}
+                        />
+                      </button>
                     </div>
 
-                    <div>
-                      {/* Price & Discount */}
-                      <div
-                        style={{
-                          display: 'flex',
-                          alignItems: 'baseline',
-                          gap: 8,
-                          marginBottom: 14,
+                    {/* Product Image Link */}
+                    <Link
+                      href={`/product/${product.id}`}
+                      className="wt-card-img-link"
+                    >
+                      <img
+                        src={
+                          product.image ||
+                          'https://watchtown.in/wp-content/uploads/2025/11/Coach-Delancey-Rose-Gold-Black-Dial-36mm-1-600x600.jpg'
+                        }
+                        alt={product.name}
+                        className="wt-card-product-img"
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).src =
+                            'https://watchtown.in/wp-content/uploads/2025/11/Coach-Delancey-Rose-Gold-Black-Dial-36mm-1-600x600.jpg';
                         }}
-                      >
-                        <span
-                          style={{
-                            fontSize: 18,
-                            fontWeight: 800,
-                            color: '#111827',
-                          }}
-                        >
-                          ₹{product.price.toLocaleString('en-IN')}
-                        </span>
-                        {product.originalPrice && product.originalPrice > product.price && (
-                          <span
-                            style={{
-                              fontSize: 13,
-                              color: '#9ca3af',
-                              textDecoration: 'line-through',
-                            }}
-                          >
-                            ₹{product.originalPrice.toLocaleString('en-IN')}
-                          </span>
-                        )}
-                      </div>
+                      />
+                    </Link>
 
-                      {/* Add to cart CTA */}
-                      <button
-                        onClick={(e) => handleAddToCart(product, e)}
-                        disabled={isOutOfStock}
-                        style={{
-                          width: '100%',
-                          padding: '10px 14px',
-                          borderRadius: 8,
-                          border: 'none',
-                          background: isOutOfStock
-                            ? '#e5e7eb'
-                            : isJustAdded
-                            ? '#10b981'
-                            : '#000000',
-                          color: isOutOfStock ? '#9ca3af' : '#ffffff',
-                          fontWeight: 700,
-                          fontSize: 13,
-                          cursor: isOutOfStock ? 'not-allowed' : 'pointer',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          gap: 6,
-                          transition: 'background-color 0.2s',
-                        }}
-                      >
-                        {isOutOfStock ? (
-                          'Out of Stock'
-                        ) : isJustAdded ? (
-                          <>
-                            <Check size={16} /> Added to Cart
-                          </>
-                        ) : (
-                          <>
-                            <ShoppingBag size={15} /> Add to Cart
-                          </>
-                        )}
-                      </button>
+                    {/* Gold/Mustard Full-Width Add To Cart Banner */}
+                    <button
+                      type="button"
+                      onClick={(e) => handleAddToCart(product, e)}
+                      disabled={isOutOfStock}
+                      className="wt-card-cart-gold-bar"
+                    >
+                      {isOutOfStock ? (
+                        'Out of Stock'
+                      ) : isJustAdded ? (
+                        <>
+                          <Check size={16} /> Added To Cart
+                        </>
+                      ) : (
+                        'Add To Cart'
+                      )}
+                    </button>
+                  </div>
+
+                  {/* Below Media Box: Product Title & Prices */}
+                  <div className="wt-card-bottom-info">
+                    <h3 className="wt-card-title">
+                      <Link href={`/product/${product.id}`}>
+                        {product.name}
+                      </Link>
+                    </h3>
+
+                    <div className="wt-card-price-row">
+                      <span className="wt-card-old-price">
+                        {originalPriceFormatted}
+                      </span>
+                      <span className="wt-card-current-price">
+                        {priceFormatted}
+                      </span>
                     </div>
                   </div>
                 </div>
