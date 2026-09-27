@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { revalidatePath } from 'next/cache';
 import { getProductById, updateProduct, deleteProduct } from '@/lib/db';
 import { getSession } from '@/lib/auth';
 
@@ -64,6 +65,15 @@ export async function PUT(
       return NextResponse.json({ error: 'Product not found.' }, { status: 404 });
     }
 
+    try {
+      revalidatePath('/', 'page');
+      revalidatePath('/shop', 'page');
+      revalidatePath('/admin', 'page');
+      revalidatePath(`/product/${id}`, 'page');
+    } catch (e) {
+      console.warn('Revalidation warning:', e);
+    }
+
     return NextResponse.json({ success: true, product: updated });
   } catch (err) {
     console.error('Error updating product:', err);
@@ -89,6 +99,15 @@ export async function DELETE(
 
     if (!success) {
       return NextResponse.json({ error: 'Product not found.' }, { status: 404 });
+    }
+
+    try {
+      revalidatePath('/', 'page');
+      revalidatePath('/shop', 'page');
+      revalidatePath('/admin', 'page');
+      revalidatePath(`/product/${id}`, 'page');
+    } catch (e) {
+      console.warn('Revalidation warning:', e);
     }
 
     return NextResponse.json({ success: true, message: 'Product deleted successfully.' });

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { revalidatePath } from 'next/cache';
 import {
   getProducts,
   createProduct,
@@ -105,6 +106,15 @@ export async function POST(req: NextRequest) {
       featured: Boolean(body.featured),
       description: body.description?.trim() || 'Premium 7AA master copy luxury timepiece with warranty and luxury box.',
     });
+
+    try {
+      revalidatePath('/', 'page');
+      revalidatePath('/shop', 'page');
+      revalidatePath('/admin', 'page');
+      revalidatePath(`/product/${product.id}`, 'page');
+    } catch (e) {
+      console.warn('Revalidation warning:', e);
+    }
 
     return NextResponse.json({ success: true, product }, { status: 201 });
   } catch (err) {
