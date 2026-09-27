@@ -1,12 +1,14 @@
 import fs from 'fs';
 import path from 'path';
 import crypto from 'crypto';
-import { Product, InventoryStats } from '@/types';
+import { Product, InventoryStats, Brand, Category } from '@/types';
 import { SEED_PRODUCTS } from './seed-products';
 import { getMongoCollection, isMongoConfigured } from './mongodb';
 
 const DB_DIR = path.join(process.cwd(), 'data');
 const PRODUCTS_FILE = path.join(DB_DIR, 'products.json');
+const BRANDS_FILE = path.join(DB_DIR, 'brands.json');
+const CATEGORIES_FILE = path.join(DB_DIR, 'categories.json');
 
 function ensureDbDirectory() {
   if (!fs.existsSync(DB_DIR)) {
@@ -573,36 +575,385 @@ export async function getInventoryStats(): Promise<InventoryStats> {
   };
 }
 
-export async function getAllBrands(): Promise<string[]> {
-  if (isMongoConfigured()) {
-    const col = await getProductsCollection();
-    if (col) {
-      const brands = await col.distinct('brand', { brand: { $exists: true } });
-      return (brands as string[]).filter(Boolean).sort();
+function slugify(text: string): string {
+  return text
+    .toString()
+    .toLowerCase()
+    .trim()
+    .replace(/\s+/g, '-')
+    .replace(/[^\w-]+/g, '')
+    .replace(/--+/g, '-');
+}
+
+function readBrandsFromFile(): Brand[] {
+  ensureDbDirectory();
+  if (!fs.existsSync(BRANDS_FILE)) {
+    const products = readProductsFromFile();
+    const set = new Set<string>();
+    products.forEach((p) => {
+      if (p.brand && p.brand.trim()) set.add(p.brand.trim());
+    });
+    const defaultBrandNames = set.size > 0 ? Array.from(set) : [
+      'Rolex', 'Audemars Piguet', 'Patek Philippe', 'Omega',
+      'Tag Heuer', 'Cartier', 'Hublot', 'Tissot', 'Casio', 'Rado'
+    ];
+    const initialBrands: Brand[] = defaultBrandNames.map((name) => ({
+      id: `brand-${slugify(name)}`,
+      name,
+      url: `/shop?brand=${encodeURIComponent(name)}`,
+      logo: '',
+      description: `Curated collection of ${name} timepieces.`,
+      createdAt: new Date().toISOString(),
+    }));
+    try {
+      fs.writeFileSync(BRANDS_FILE, JSON.stringify(initialBrands, null, 2), 'utf8');
+    } catch (err) {
+      console.error('Failed to write initial brands file:', err);
+    }
+    return initialBrands;
+  }
+
+  try {
+    const raw = fs.readFileSync(BRANDS_FILE, 'utf8');
+    return JSON.parse(raw) as Brand[];
+  } catch (err) {
+    console.error('Failed to read brands file:', err);
+    return [];
+  }
+}
+
+function writeBrandsToFile(brands: Brand[]): void {
+  ensureDbDirectory();
+  fs.writeFileSync(BRANDS_FILE, JSON.stringify(brands, null, 2), 'utf8');
+}
+
+export async function getBrandsList(): Promise<Brand[]> {
+  const brands = readBrandsFromFile();
+  const products = readProductsFromFile();
+
+  // Create a map to quickly compute products count and sample image
+  const statsMap = new Map<string, { count: number; totalValue: number; sampleImage: string }>();
+
+  products.forEach((p) => {
+    if (!p.brand) return;
+    const bName = p.brand.trim();
+    const lower = bName.toLowerCase();
+    const current = statsMap.get(lower) || { count: 0, totalValue: 0, sampleImage: '' };
+    current.count += 1;
+    current.totalValue += (p.stock ?? 1) * p.price;
+    if (!current.sampleImage && p.image) {
+      current.sampleImage = p.image;
+    }
+    statsMap.set(lower, current);
+  });
+
+  // Ensure any brand from products is represented
+  const existingNamesLower = new Set(brands.map((b) => b.name.toLowerCase()));
+  let updated = false;
+
+  statsMap.forEach((_, lowerKey) => {
+    if (!existingNamesLower.has(lowerKey)) {
+      // Find actual casing
+      const actualProd = products.find((p) => p.brand && p.brand.toLowerCase() === lowerKey);
+      const actualName = actualProd?.brand || lowerKey;
+      brands.push({
+        id: `brand-${slugify(actualName)}`,
+        name: actualName,
+        url: `/shop?brand=${encodeURIComponent(actualName)}`,
+        logo: '',
+        description: `Curated ${actualName} collection.`,
+        createdAt: new Date().toISOString(),
+      });
+      existingNamesLower.add(lowerKey);
+      updated = true;
+    }
+  });
+
+  if (updated) {
+    try {
+      writeBrandsToFile(brands);
+    } catch {
+      // ignore write errors in read path
     }
   }
 
-  const all = readProductsFromFile();
-  const set = new Set<string>();
-  all.forEach((p) => {
-    if (p.brand) set.add(p.brand);
+  // Populate dynamic stats
+  return brands.map((b) => {
+    const stat = statsMap.get(b.name.toLowerCase()) || { count: 0, totalValue: 0, sampleImage: '' };
+    return {
+      ...b,
+      productCount: stat.count,
+      totalValue: stat.totalValue,
+      sampleImage: b.logo || stat.sampleImage || '',
+    };
+  }).sort((a, b) => a.name.localeCompare(b.name));
+}
+
+export async function addBrand(data: { name: string; logo?: string; description?: string }): Promise<Brand> {
+  const trimmedName = data.name.trim();
+  if (!trimmedName) throw new Error('Brand name is required');
+
+  const products = readProductsFromFile();
+  const existingProduct = products.find((p) => p.brand && p.brand.toLowerCase() === trimmedName.toLowerCase());
+  const resolvedName = (trimmedName === trimmedName.toLowerCase() && existingProduct?.brand) ? existingProduct.brand : trimmedName;
+
+  const brands = readBrandsFromFile();
+  const slug = slugify(resolvedName);
+  const existingIndex = brands.findIndex(
+    (b) => b.name.toLowerCase() === resolvedName.toLowerCase() || b.id === `brand-${slug}`
+  );
+
+  const brandObj: Brand = {
+    id: existingIndex >= 0 ? brands[existingIndex].id : `brand-${Date.now()}-${slug}`,
+    name: resolvedName,
+    url: `/shop?brand=${encodeURIComponent(resolvedName)}`,
+    logo: data.logo?.trim() || (existingIndex >= 0 ? brands[existingIndex].logo || '' : ''),
+    description: data.description?.trim() || (existingIndex >= 0 ? brands[existingIndex].description || '' : ''),
+    createdAt: existingIndex >= 0 ? brands[existingIndex].createdAt || new Date().toISOString() : new Date().toISOString(),
+  };
+
+  if (existingIndex >= 0) {
+    brands[existingIndex] = brandObj;
+  } else {
+    brands.push(brandObj);
+  }
+
+  writeBrandsToFile(brands);
+  return brandObj;
+}
+
+export interface DeleteEntityResult {
+  success: boolean;
+  brandName?: string;
+  categoryName?: string;
+  hasProducts?: boolean;
+  count?: number;
+  deletedProductsCount?: number;
+}
+
+export async function deleteBrand(nameOrId: string, deleteAssociatedProducts: boolean = false): Promise<DeleteEntityResult> {
+  const brands = readBrandsFromFile();
+  const lower = nameOrId.toLowerCase();
+  const targetBrand = brands.find((b) => b.id === nameOrId || b.name.toLowerCase() === lower);
+  const actualName = targetBrand?.name || nameOrId;
+
+  // Check how many products are linked to this brand in catalog
+  const allProducts = readProductsFromFile();
+  const matchingProducts = allProducts.filter((p) => p.brand && p.brand.toLowerCase() === actualName.toLowerCase());
+  const productCount = matchingProducts.length;
+
+  if (productCount > 0 && !deleteAssociatedProducts) {
+    return {
+      success: false,
+      hasProducts: true,
+      count: productCount,
+      brandName: actualName,
+    };
+  }
+
+  let deletedProductsCount = 0;
+  if (productCount > 0 && deleteAssociatedProducts) {
+    const remainingProducts = allProducts.filter((p) => !p.brand || p.brand.toLowerCase() !== actualName.toLowerCase());
+    deletedProductsCount = allProducts.length - remainingProducts.length;
+    writeProductsToFile(remainingProducts);
+  }
+
+  const filtered = brands.filter((b) => b.id !== nameOrId && b.name.toLowerCase() !== actualName.toLowerCase());
+  writeBrandsToFile(filtered);
+
+  return {
+    success: true,
+    brandName: actualName,
+    deletedProductsCount,
+  };
+}
+
+function readCategoriesFromFile(): Category[] {
+  ensureDbDirectory();
+  if (!fs.existsSync(CATEGORIES_FILE)) {
+    const products = readProductsFromFile();
+    const set = new Set<string>();
+    products.forEach((p) => {
+      (p.categories || []).forEach((c) => {
+        if (c && c.trim()) set.add(c.trim());
+      });
+    });
+    const defaultCatNames = set.size > 0 ? Array.from(set) : [
+      "Men's Watches", "Women's Watches", "Automatic Watches",
+      "Chronograph Watches", "Diver Watches", "Luxury", "Quartz Watches"
+    ];
+    const initialCats: Category[] = defaultCatNames.map((name) => ({
+      id: `cat-${slugify(name)}`,
+      name,
+      url: `/shop?category=${encodeURIComponent(name)}`,
+      image: '',
+      description: `Explore all ${name} at WatchTown.`,
+      createdAt: new Date().toISOString(),
+    }));
+    try {
+      fs.writeFileSync(CATEGORIES_FILE, JSON.stringify(initialCats, null, 2), 'utf8');
+    } catch (err) {
+      console.error('Failed to write initial categories file:', err);
+    }
+    return initialCats;
+  }
+
+  try {
+    const raw = fs.readFileSync(CATEGORIES_FILE, 'utf8');
+    return JSON.parse(raw) as Category[];
+  } catch (err) {
+    console.error('Failed to read categories file:', err);
+    return [];
+  }
+}
+
+function writeCategoriesToFile(categories: Category[]): void {
+  ensureDbDirectory();
+  fs.writeFileSync(CATEGORIES_FILE, JSON.stringify(categories, null, 2), 'utf8');
+}
+
+export async function getCategoriesList(): Promise<Category[]> {
+  const categories = readCategoriesFromFile();
+  const products = readProductsFromFile();
+
+  const statsMap = new Map<string, { count: number; sampleImage: string }>();
+
+  products.forEach((p) => {
+    (p.categories || []).forEach((c) => {
+      if (!c) return;
+      const cName = c.trim();
+      const lower = cName.toLowerCase();
+      const current = statsMap.get(lower) || { count: 0, sampleImage: '' };
+      current.count += 1;
+      if (!current.sampleImage && p.image) {
+        current.sampleImage = p.image;
+      }
+      statsMap.set(lower, current);
+    });
   });
-  return Array.from(set).sort();
+
+  // Ensure any category from products is represented
+  const existingNamesLower = new Set(categories.map((c) => c.name.toLowerCase()));
+  let updated = false;
+
+  statsMap.forEach((_, lowerKey) => {
+    if (!existingNamesLower.has(lowerKey)) {
+      // Find actual casing
+      let actualName = lowerKey;
+      for (const p of products) {
+        const found = (p.categories || []).find((c) => c.toLowerCase() === lowerKey);
+        if (found) {
+          actualName = found;
+          break;
+        }
+      }
+      categories.push({
+        id: `cat-${slugify(actualName)}`,
+        name: actualName,
+        url: `/shop?category=${encodeURIComponent(actualName)}`,
+        image: '',
+        description: `Explore all ${actualName} at WatchTown.`,
+        createdAt: new Date().toISOString(),
+      });
+      existingNamesLower.add(lowerKey);
+      updated = true;
+    }
+  });
+
+  if (updated) {
+    try {
+      writeCategoriesToFile(categories);
+    } catch {
+      // ignore
+    }
+  }
+
+  return categories.map((c) => {
+    const stat = statsMap.get(c.name.toLowerCase()) || { count: 0, sampleImage: '' };
+    return {
+      ...c,
+      productCount: stat.count,
+      sampleImage: c.image || stat.sampleImage || '',
+    };
+  }).sort((a, b) => a.name.localeCompare(b.name));
+}
+
+export async function addCategory(data: { name: string; image?: string; description?: string }): Promise<Category> {
+  const trimmedName = data.name.trim();
+  if (!trimmedName) throw new Error('Category/Collection name is required');
+
+  const categories = readCategoriesFromFile();
+  const slug = slugify(trimmedName);
+  const existingIndex = categories.findIndex(
+    (c) => c.name.toLowerCase() === trimmedName.toLowerCase() || c.id === `cat-${slug}`
+  );
+
+  const catObj: Category = {
+    id: existingIndex >= 0 ? categories[existingIndex].id : `cat-${Date.now()}-${slug}`,
+    name: trimmedName,
+    url: `/shop?category=${encodeURIComponent(trimmedName)}`,
+    image: data.image?.trim() || (existingIndex >= 0 ? categories[existingIndex].image || '' : ''),
+    description: data.description?.trim() || (existingIndex >= 0 ? categories[existingIndex].description || '' : ''),
+    createdAt: existingIndex >= 0 ? categories[existingIndex].createdAt || new Date().toISOString() : new Date().toISOString(),
+  };
+
+  if (existingIndex >= 0) {
+    categories[existingIndex] = catObj;
+  } else {
+    categories.push(catObj);
+  }
+
+  writeCategoriesToFile(categories);
+  return catObj;
+}
+
+export async function deleteCategory(nameOrId: string, deleteAssociatedProducts: boolean = false): Promise<DeleteEntityResult> {
+  const categories = readCategoriesFromFile();
+  const lower = nameOrId.toLowerCase();
+  const targetCat = categories.find((c) => c.id === nameOrId || c.name.toLowerCase() === lower);
+  const actualName = targetCat?.name || nameOrId;
+
+  const allProducts = readProductsFromFile();
+  const matchingProducts = allProducts.filter((p) =>
+    (p.categories || []).some((c) => c.toLowerCase() === actualName.toLowerCase())
+  );
+  const productCount = matchingProducts.length;
+
+  if (productCount > 0 && !deleteAssociatedProducts) {
+    return {
+      success: false,
+      hasProducts: true,
+      count: productCount,
+      categoryName: actualName,
+    };
+  }
+
+  let deletedProductsCount = 0;
+  if (productCount > 0 && deleteAssociatedProducts) {
+    const remainingProducts = allProducts.filter(
+      (p) => !(p.categories || []).some((c) => c.toLowerCase() === actualName.toLowerCase())
+    );
+    deletedProductsCount = allProducts.length - remainingProducts.length;
+    writeProductsToFile(remainingProducts);
+  }
+
+  const filtered = categories.filter((c) => c.id !== nameOrId && c.name.toLowerCase() !== actualName.toLowerCase());
+  writeCategoriesToFile(filtered);
+
+  return {
+    success: true,
+    categoryName: actualName,
+    deletedProductsCount,
+  };
+}
+
+export async function getAllBrands(): Promise<string[]> {
+  const brands = await getBrandsList();
+  return brands.map((b) => b.name);
 }
 
 export async function getAllCategories(): Promise<string[]> {
-  if (isMongoConfigured()) {
-    const col = await getProductsCollection();
-    if (col) {
-      const categories = await col.distinct('categories', {});
-      return (categories as string[]).filter(Boolean).sort();
-    }
-  }
-
-  const all = readProductsFromFile();
-  const set = new Set<string>();
-  all.forEach((p) => {
-    p.categories.forEach((c) => set.add(c));
-  });
-  return Array.from(set).sort();
+  const categories = await getCategoriesList();
+  return categories.map((c) => c.name);
 }
+

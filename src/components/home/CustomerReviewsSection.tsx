@@ -10,6 +10,8 @@ import {
   ArrowLeft,
   CheckCheck,
   ShieldCheck,
+  Eye,
+  X,
 } from 'lucide-react';
 
 interface WhatsAppReview {
@@ -28,6 +30,7 @@ interface WhatsAppReview {
 }
 
 const REVIEWS: WhatsAppReview[] = [
+
   {
     id: 1,
     phone: '+91 94*** 79360',
@@ -170,14 +173,35 @@ const REVIEWS: WhatsAppReview[] = [
   },
 ];
 
-export function CustomerReviewsSection() {
+interface CustomerReviewsSectionProps {
+  initialReviews?: WhatsAppReview[];
+}
+
+export function CustomerReviewsSection({ initialReviews }: CustomerReviewsSectionProps = {}) {
+  const [reviews, setReviews] = useState<WhatsAppReview[]>(initialReviews && initialReviews.length > 0 ? initialReviews : REVIEWS);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
   const [visibleCount, setVisibleCount] = useState(4);
+  const [lightboxImage, setLightboxImage] = useState<string | null>(null);
   const touchStartXRef = useRef(0);
   const touchEndXRef = useRef(0);
 
-  const totalReviews = REVIEWS.length;
+  useEffect(() => {
+    let isMounted = true;
+    fetch('/api/reviews')
+      .then((res) => res.json())
+      .then((data) => {
+        if (isMounted && data?.success && Array.isArray(data.reviews) && data.reviews.length > 0) {
+          setReviews(data.reviews);
+        }
+      })
+      .catch((err) => console.error('Failed to fetch reviews on home:', err));
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  const totalReviews = reviews.length;
 
   // Responsive items visible
   useEffect(() => {
@@ -380,7 +404,7 @@ export function CustomerReviewsSection() {
                 gap: 18,
               }}
             >
-              {REVIEWS.map((rev) => (
+              {reviews.map((rev) => (
                 <div
                   key={rev.id}
                   style={{
@@ -389,262 +413,116 @@ export function CustomerReviewsSection() {
                     boxSizing: 'border-box',
                   }}
                 >
-                  {/* WhatsApp Screenshot Card */}
+                  {/* Whole Screenshot Card (No template) */}
                   <div
-                    className="wt-whatsapp-card"
+                    className="wt-review-card"
+                    onClick={() => setLightboxImage(rev.watchImage)}
                     style={{
                       background: '#121b22',
                       border: '1px solid #233138',
-                      borderRadius: 18,
+                      borderRadius: 16,
                       overflow: 'hidden',
                       display: 'flex',
                       flexDirection: 'column',
-                      height: 480,
+                      height: 520,
                       position: 'relative',
                       boxShadow: '0 10px 30px rgba(0, 0, 0, 0.45)',
-                      transition: 'transform 0.3s ease, box-shadow 0.3s ease',
+                      transition: 'transform 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease',
+                      cursor: 'pointer',
                     }}
+                    title="Click to view full screenshot"
                   >
-                    {/* Watermark Diagonal Banner */}
                     <div
                       style={{
-                        position: 'absolute',
-                        top: 240,
-                        left: -50,
-                        width: '140%',
-                        transform: 'rotate(-28deg)',
-                        background: 'rgba(0, 0, 0, 0.85)',
-                        borderTop: '1.5px solid #d4af37',
-                        borderBottom: '1.5px solid #d4af37',
-                        color: '#ffee00',
-                        fontSize: 11,
-                        fontWeight: 800,
-                        letterSpacing: 1.5,
-                        textAlign: 'center',
-                        padding: '4px 0',
-                        zIndex: 4,
-                        pointerEvents: 'none',
-                        textShadow: '0 1px 3px rgba(0,0,0,0.9)',
-                        boxShadow: '0 2px 10px rgba(0,0,0,0.6)',
-                      }}
-                    >
-                      watchtown.in &bull; watchtown.in &bull; watchtown.in
-                    </div>
-
-                    {/* WhatsApp Header */}
-                    <div
-                      style={{
-                        background: '#1f2c34',
-                        padding: '10px 12px',
+                        width: '100%',
+                        height: '100%',
+                        background: '#070b0e',
                         display: 'flex',
                         alignItems: 'center',
-                        justifyContent: 'space-between',
-                        borderBottom: '1px solid #2a3942',
-                        zIndex: 2,
-                      }}
-                    >
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <ArrowLeft size={16} color="#aebac1" />
-                        <div
-                          style={{
-                            width: 32,
-                            height: 32,
-                            borderRadius: '50%',
-                            background: rev.avatarColor,
-                            color: '#ffffff',
-                            fontWeight: 700,
-                            fontSize: 14,
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                          }}
-                        >
-                          {rev.avatarInitial}
-                        </div>
-                        <div>
-                          <div style={{ fontSize: 13, fontWeight: 700, color: '#e9edef' }}>
-                            {rev.phone}
-                          </div>
-                          <div style={{ fontSize: 10, color: '#8696a0' }}>online</div>
-                        </div>
-                      </div>
-
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 14, color: '#aebac1' }}>
-                        <Video size={16} />
-                        <Phone size={15} />
-                        <MoreVertical size={16} />
-                      </div>
-                    </div>
-
-                    {/* Chat Wallpaper & Bubbles Area */}
-                    <div
-                      style={{
-                        flex: 1,
-                        padding: '14px 10px',
-                        background: '#0b141a',
-                        backgroundImage: 'radial-gradient(circle, #182229 10%, transparent 11%)',
-                        backgroundSize: '16px 16px',
-                        display: 'flex',
-                        flexDirection: 'column',
-                        justifyContent: 'space-between',
-                        overflow: 'hidden',
+                        justifyContent: 'center',
                         position: 'relative',
+                        overflow: 'hidden',
                       }}
                     >
-                      {/* Date Bubble */}
-                      <div style={{ textAlign: 'center', marginBottom: 8 }}>
-                        <span
-                          style={{
-                            background: '#182229',
-                            color: '#8696a0',
-                            fontSize: 10,
-                            fontWeight: 600,
-                            padding: '3px 10px',
-                            borderRadius: 6,
-                            display: 'inline-block',
-                          }}
-                        >
-                          {rev.dateStr}
-                        </span>
-                      </div>
+                      <img
+                        src={rev.watchImage}
+                        alt={rev.watchModel || 'Customer Review'}
+                        style={{
+                          width: '100%',
+                          height: '100%',
+                          objectFit: 'contain',
+                          display: 'block',
+                        }}
+                        loading="lazy"
+                      />
 
-                      {/* Messages Flow */}
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: 8, zIndex: 3 }}>
-                        {/* Admin Message */}
-                        {rev.adminMessages.map((msg, i) => (
-                          <div
-                            key={i}
-                            style={{
-                              alignSelf: 'flex-end',
-                              background: '#005c4b',
-                              color: '#e9edef',
-                              borderRadius: '8px 8px 0px 8px',
-                              padding: '6px 10px',
-                              maxWidth: '85%',
-                              fontSize: 12,
-                              lineHeight: 1.4,
-                              boxShadow: '0 1px 2px rgba(0,0,0,0.3)',
-                            }}
-                          >
-                            <p style={{ margin: 0 }}>{msg}</p>
-                            <div
-                              style={{
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'flex-end',
-                                gap: 3,
-                                fontSize: 9,
-                                color: 'rgba(255,255,255,0.6)',
-                                marginTop: 2,
-                              }}
-                            >
-                              <span>12:41 pm</span>
-                              <CheckCheck size={13} color="#53bdeb" />
-                            </div>
-                          </div>
-                        ))}
-
-                        {/* Customer Image Showcase Card inside bubble */}
-                        <div
-                          style={{
-                            alignSelf: 'flex-start',
-                            background: '#202c33',
-                            borderRadius: '8px 8px 8px 0px',
-                            padding: 6,
-                            maxWidth: '92%',
-                            boxShadow: '0 1px 2px rgba(0,0,0,0.3)',
-                          }}
-                        >
-                          <div
-                            style={{
-                              borderRadius: 6,
-                              overflow: 'hidden',
-                              background: '#111b21',
-                              height: 140,
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              position: 'relative',
-                            }}
-                          >
-                            <img
-                              src={rev.watchImage}
-                              alt={rev.watchModel}
-                              style={{
-                                width: '100%',
-                                height: '100%',
-                                objectFit: 'contain',
-                                padding: 6,
-                              }}
-                              loading="lazy"
-                            />
-                            <span
-                              style={{
-                                position: 'absolute',
-                                bottom: 4,
-                                right: 6,
-                                background: 'rgba(0,0,0,0.7)',
-                                color: '#ffffff',
-                                fontSize: 9,
-                                padding: '2px 6px',
-                                borderRadius: 4,
-                              }}
-                            >
-                              Photo • 1.2 MB
-                            </span>
-                          </div>
-
-                          {/* Customer Review Text */}
-                          <div style={{ padding: '6px 4px 2px 4px' }}>
-                            <p
-                              style={{
-                                color: '#e9edef',
-                                fontSize: 12,
-                                lineHeight: 1.4,
-                                margin: '0 0 4px 0',
-                                fontWeight: 500,
-                              }}
-                            >
-                              {rev.replyMessage}
-                            </p>
-                            <div
-                              style={{
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'space-between',
-                                fontSize: 9,
-                                color: '#8696a0',
-                              }}
-                            >
-                              <span style={{ color: '#d4af37', fontWeight: 600 }}>
-                                {rev.watchModel}
-                              </span>
-                              <span>{rev.time}</span>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Reaction / Heart Bubble */}
+                      {/* View Full Hint Badge */}
                       <div
                         style={{
+                          position: 'absolute',
+                          top: 12,
+                          right: 12,
+                          background: 'rgba(0, 0, 0, 0.72)',
+                          backdropFilter: 'blur(6px)',
+                          color: '#ffffff',
+                          fontSize: 11,
+                          fontWeight: 600,
+                          padding: '5px 11px',
+                          borderRadius: 20,
                           display: 'flex',
                           alignItems: 'center',
                           gap: 6,
-                          background: '#1f2c34',
-                          border: '1px solid #2a3942',
-                          borderRadius: 20,
-                          padding: '4px 10px',
-                          alignSelf: 'flex-start',
-                          marginTop: 6,
-                          fontSize: 11,
-                          color: '#e9edef',
-                          zIndex: 3,
+                          border: '1px solid rgba(255, 255, 255, 0.18)',
+                          pointerEvents: 'none',
+                          boxShadow: '0 4px 12px rgba(0,0,0,0.5)',
                         }}
                       >
-                        <span>WatchTown</span>
-                        <span>{rev.reaction}</span>
+                        <Eye size={13} style={{ color: '#f3ce5e' }} />
+                        <span>View Full</span>
                       </div>
+
+                      {/* Optional Bottom Caption Banner */}
+                      {rev.watchModel && rev.watchModel !== 'test' && rev.watchModel !== 'Luxury Timepiece' && (
+                        <div
+                          style={{
+                            position: 'absolute',
+                            bottom: 0,
+                            left: 0,
+                            right: 0,
+                            background: 'linear-gradient(to top, rgba(0,0,0,0.88) 0%, transparent 100%)',
+                            padding: '24px 14px 12px',
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'flex-end',
+                            pointerEvents: 'none',
+                          }}
+                        >
+                          <div style={{ overflow: 'hidden' }}>
+                            <div style={{ color: '#f3ce5e', fontSize: 13, fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                              {rev.watchModel}
+                            </div>
+                            {rev.replyMessage && rev.replyMessage !== 'test' && (
+                              <div style={{ color: '#cbd5e1', fontSize: 11, marginTop: 2, maxWidth: 220, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                {rev.replyMessage}
+                              </div>
+                            )}
+                          </div>
+                          <span
+                            style={{
+                              fontSize: 10,
+                              color: '#94a3b8',
+                              background: 'rgba(255,255,255,0.1)',
+                              padding: '2px 8px',
+                              borderRadius: 12,
+                              whiteSpace: 'nowrap',
+                              flexShrink: 0,
+                              marginLeft: 8,
+                            }}
+                          >
+                            {rev.dateStr}
+                          </span>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -654,6 +532,61 @@ export function CustomerReviewsSection() {
 
         </div>
       </div>
+
+      {/* Lightbox Modal for Full View */}
+      {lightboxImage && (
+        <div
+          className="wt-reviews-lightbox"
+          onClick={() => setLightboxImage(null)}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0, 0, 0, 0.94)',
+            zIndex: 99999,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: 24,
+            backdropFilter: 'blur(8px)',
+          }}
+        >
+          <button
+            type="button"
+            onClick={() => setLightboxImage(null)}
+            style={{
+              position: 'absolute',
+              top: 24,
+              right: 24,
+              background: 'rgba(255, 255, 255, 0.18)',
+              border: 'none',
+              color: '#ffffff',
+              width: 44,
+              height: 44,
+              borderRadius: '50%',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              cursor: 'pointer',
+              transition: 'background 0.2s',
+            }}
+            title="Close Full Screenshot View"
+          >
+            <X size={22} />
+          </button>
+          <img
+            src={lightboxImage}
+            alt="Customer Review Screenshot Full View"
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              maxHeight: '92vh',
+              maxWidth: '92vw',
+              objectFit: 'contain',
+              borderRadius: 12,
+              boxShadow: '0 25px 70px rgba(0, 0, 0, 0.9)',
+            }}
+          />
+        </div>
+      )}
     </section>
   );
 }

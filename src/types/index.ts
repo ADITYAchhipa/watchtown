@@ -112,6 +112,10 @@ export interface Category {
   url: string;
   image?: string;
   count?: number;
+  description?: string;
+  productCount?: number;
+  sampleImage?: string;
+  createdAt?: string;
 }
 
 export interface Brand {
@@ -119,6 +123,11 @@ export interface Brand {
   name: string;
   url: string;
   logo?: string;
+  description?: string;
+  productCount?: number;
+  totalValue?: number;
+  sampleImage?: string;
+  createdAt?: string;
 }
 
 export interface Article {
@@ -151,3 +160,19 @@ export interface SiteConfig {
   locale: string;
   ogImage: string;
 }
+
+export interface WhatsAppReview {
+  id: number;
+  phone: string;
+  avatarColor: string;
+  avatarInitial: string;
+  dateStr: string;
+  watchModel: string;
+  watchImage: string;
+  userMessages: string[];
+  adminMessages: string[];
+  replyMessage: string;
+  time: string;
+  reaction: string;
+}
+

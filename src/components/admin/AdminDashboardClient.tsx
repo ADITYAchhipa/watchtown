@@ -31,8 +31,10 @@ import {
   ChevronRight,
   Shield,
   FileText,
+  Award,
+  Layers,
 } from 'lucide-react';
-import { Product, InventoryStats, AuthSession, Order, OrderStats, OrderStatus } from '@/types';
+import { Product, InventoryStats, AuthSession, Order, OrderStats, OrderStatus, WhatsAppReview, Brand, Category } from '@/types';
 
 interface AdminDashboardClientProps {
   initialSession: AuthSession;
@@ -40,8 +42,11 @@ interface AdminDashboardClientProps {
   initialStats: InventoryStats;
   brands: string[];
   categories: string[];
+  initialBrandsList?: Brand[];
+  initialCategoriesList?: Category[];
   initialOrders?: Order[];
   initialOrderStats?: OrderStats;
+  initialReviews?: WhatsAppReview[];
 }
 
 interface CustomerProfile {
@@ -64,18 +69,23 @@ interface CustomerProfile {
 
 const SCREEN_META: Record<string, [string, string]> = {
   inventory: ['Inventory & Products', 'Manage your watch catalog, stock levels and inventory valuation.'],
+  brands: ['Brand Catalog & Maisons', 'Manage luxury watch maisons, brand logos, and storefront brand catalog mappings.'],
+  collections: ['Collections & Categories', 'Curate watch categories, dial styles, and storefront collection filters.'],
   orders: ['Orders & Fulfillment', 'Track placed customer orders, fulfillment pipelines, and couriers.'],
   analytics: ['Executive Analytics', 'Real-time sales revenue, inventory valuation, and brand mix.'],
   customers: ['Customer Management', 'View verified buyer dossiers, order frequencies, and lifetime value.'],
   settings: ['Store Settings & Ops', 'Configure store preferences, logistics automations, and security.'],
+  reviews: ['Customer Reviews', 'Manage the Customer Reviews slider images displayed on the home page.'],
 };
 
 export function AdminDashboardClient({
   initialSession,
   initialProducts,
   initialStats,
-  brands,
-  categories,
+  brands: initialBrands,
+  categories: initialCategories,
+  initialBrandsList = [],
+  initialCategoriesList = [],
   initialOrders = [],
   initialOrderStats = {
     totalOrders: 0,
@@ -85,11 +95,18 @@ export function AdminDashboardClient({
     dispatchedCount: 0,
     deliveredCount: 0,
   },
+  initialReviews = [],
 }: AdminDashboardClientProps) {
   const router = useRouter();
 
   // Active navigation screen
-  const [activeScreen, setActiveScreen] = useState<'inventory' | 'orders' | 'analytics' | 'customers' | 'settings'>('inventory');
+  const [activeScreen, setActiveScreen] = useState<'inventory' | 'orders' | 'analytics' | 'customers' | 'settings' | 'reviews' | 'brands' | 'collections'>('inventory');
+
+  // Dynamic Brands & Categories
+  const [brands, setBrands] = useState<string[]>(initialBrands);
+  const [categories, setCategories] = useState<string[]>(initialCategories);
+  const [brandsList, setBrandsList] = useState<Brand[]>(initialBrandsList);
+  const [categoriesList, setCategoriesList] = useState<Category[]>(initialCategoriesList);
 
   // Products & Stats
   const [products, setProducts] = useState<Product[]>(initialProducts);
@@ -150,6 +167,69 @@ export function AdminDashboardClient({
   const [switchAuditLog, setSwitchAuditLog] = useState(true);
   const [switchMarketing, setSwitchMarketing] = useState(false);
 
+  // Customer Reviews State (persisted via /api/reviews)
+  const [reviewsList, setReviewsList] = useState<WhatsAppReview[]>(initialReviews || []);
+  const [reviewSliderIndex, setReviewSliderIndex] = useState(0);
+  const [reviewUploading, setReviewUploading] = useState(false);
+  const [reviewCaptionInput, setReviewCaptionInput] = useState('');
+  const [reviewMessageInput, setReviewMessageInput] = useState('');
+
+  // Brands & Collections State
+  const [brandSearch, setBrandSearch] = useState('');
+  const [categorySearch, setCategorySearch] = useState('');
+  const [isAddBrandModalOpen, setIsAddBrandModalOpen] = useState(false);
+  const [isAddCategoryModalOpen, setIsAddCategoryModalOpen] = useState(false);
+  const [brandDeleteWarning, setBrandDeleteWarning] = useState<{ name: string; count: number } | null>(null);
+  const [categoryDeleteWarning, setCategoryDeleteWarning] = useState<{ name: string; count: number } | null>(null);
+
+  // New Brand Form State
+  const [newBrandName, setNewBrandName] = useState('');
+  const [newBrandLogo, setNewBrandLogo] = useState('');
+  const [newBrandDescription, setNewBrandDescription] = useState('');
+  const [brandUploading, setBrandUploading] = useState(false);
+
+  // New Category Form State
+  const [newCategoryName, setNewCategoryName] = useState('');
+  const [newCategoryImage, setNewCategoryImage] = useState('');
+  const [newCategoryDescription, setNewCategoryDescription] = useState('');
+  const [categoryUploading, setCategoryUploading] = useState(false);
+
+  // Fetch data on mount if empty
+  React.useEffect(() => {
+    if (reviewsList.length === 0) {
+      fetch('/api/reviews')
+        .then((r) => r.json())
+        .then((data) => {
+          if (data?.reviews && Array.isArray(data.reviews)) {
+            setReviewsList(data.reviews);
+          }
+        })
+        .catch(() => {});
+    }
+    if (brandsList.length === 0) {
+      fetch('/api/admin/brands')
+        .then((r) => r.json())
+        .then((data) => {
+          if (data?.brands && Array.isArray(data.brands)) {
+            setBrandsList(data.brands);
+            setBrands(data.brands.map((b: Brand) => b.name));
+          }
+        })
+        .catch(() => {});
+    }
+    if (categoriesList.length === 0) {
+      fetch('/api/admin/categories')
+        .then((r) => r.json())
+        .then((data) => {
+          if (data?.categories && Array.isArray(data.categories)) {
+            setCategoriesList(data.categories);
+            setCategories(data.categories.map((c: Category) => c.name));
+          }
+        })
+        .catch(() => {});
+    }
+  }, []);
+
   // Toast notification helper
   const showToast = useCallback((msg: string) => {
     setToastMessage(msg);
@@ -174,24 +254,242 @@ export function AdminDashboardClient({
   const refreshData = async () => {
     setLoading(true);
     try {
-      const [prodRes, statsRes, ordersRes] = await Promise.all([
+      const [prodRes, statsRes, ordersRes, reviewsRes, brandsRes, catsRes] = await Promise.all([
         fetch('/api/products?limit=200'),
         fetch('/api/admin/stats'),
         fetch('/api/orders?limit=100'),
+        fetch('/api/reviews'),
+        fetch('/api/admin/brands'),
+        fetch('/api/admin/categories'),
       ]);
       const prodData = await prodRes.json();
       const statsData = await statsRes.json();
       const ordersData = await ordersRes.json();
+      const reviewsData = await reviewsRes.json();
+      const brandsData = await brandsRes.json();
+      const catsData = await catsRes.json();
 
       if (prodData.products) setProducts(prodData.products);
       if (statsData.stats) setStats(statsData.stats);
       if (ordersData.orders) setOrders(ordersData.orders);
       if (ordersData.stats) setOrderStats(ordersData.stats);
+      if (reviewsData.reviews) setReviewsList(reviewsData.reviews);
+      if (brandsData.brands) {
+        setBrandsList(brandsData.brands);
+        setBrands(brandsData.brands.map((b: Brand) => b.name));
+      }
+      if (catsData.categories) {
+        setCategoriesList(catsData.categories);
+        setCategories(catsData.categories.map((c: Category) => c.name));
+      }
       showToast('Executive data refreshed successfully');
     } catch {
       showToast('Failed to refresh data');
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Brand CRUD Handlers
+  const handleAddBrand = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (!newBrandName.trim()) {
+      showToast('Brand name is required');
+      return;
+    }
+    setSubmitting(true);
+    try {
+      const res = await fetch('/api/admin/brands', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: newBrandName.trim(),
+          logo: newBrandLogo.trim() || undefined,
+          description: newBrandDescription.trim() || undefined,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to add brand');
+
+      if (data.brands) {
+        setBrandsList(data.brands);
+        setBrands(data.brands.map((b: Brand) => b.name));
+      }
+      showToast(`Brand "${newBrandName.trim()}" added successfully`);
+      setNewBrandName('');
+      setNewBrandLogo('');
+      setNewBrandDescription('');
+      setIsAddBrandModalOpen(false);
+    } catch (err: any) {
+      showToast(err.message || 'Error adding brand');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleDeleteBrand = async (brandName: string, deleteProducts: boolean = false) => {
+    try {
+      const url = `/api/admin/brands?name=${encodeURIComponent(brandName)}${deleteProducts ? '&deleteProducts=true' : ''}`;
+      const res = await fetch(url, { method: 'DELETE' });
+      const data = await res.json();
+
+      if (!res.ok) {
+        if (data.hasProducts) {
+          setBrandDeleteWarning({ name: brandName, count: data.count || 1 });
+        }
+        showToast(data.error || 'Failed to delete brand');
+        return;
+      }
+
+      if (data.brands) {
+        setBrandsList(data.brands);
+        setBrands(data.brands.map((b: Brand) => b.name));
+      } else {
+        setBrandsList((prev) => prev.filter((b) => b.name.toLowerCase() !== brandName.toLowerCase()));
+        setBrands((prev) => prev.filter((b) => b.toLowerCase() !== brandName.toLowerCase()));
+      }
+
+      if (deleteProducts) {
+        setProducts((prev) => prev.filter((p) => !p.brand || p.brand.toLowerCase() !== brandName.toLowerCase()));
+      }
+
+      showToast(data.message || `Brand "${brandName}" removed`);
+      setBrandDeleteWarning(null);
+    } catch (err: any) {
+      showToast(err.message || 'Error deleting brand');
+    }
+  };
+
+  // Category / Collection CRUD Handlers
+  const handleAddCategory = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (!newCategoryName.trim()) {
+      showToast('Collection / Category name is required');
+      return;
+    }
+    setSubmitting(true);
+    try {
+      const res = await fetch('/api/admin/categories', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: newCategoryName.trim(),
+          image: newCategoryImage.trim() || undefined,
+          description: newCategoryDescription.trim() || undefined,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to add collection');
+
+      if (data.categories) {
+        setCategoriesList(data.categories);
+        setCategories(data.categories.map((c: Category) => c.name));
+      }
+      showToast(`Collection "${newCategoryName.trim()}" added successfully`);
+      setNewCategoryName('');
+      setNewCategoryImage('');
+      setNewCategoryDescription('');
+      setIsAddCategoryModalOpen(false);
+    } catch (err: any) {
+      showToast(err.message || 'Error adding collection');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleDeleteCategory = async (catName: string, deleteProducts: boolean = false) => {
+    try {
+      const url = `/api/admin/categories?name=${encodeURIComponent(catName)}${deleteProducts ? '&deleteProducts=true' : ''}`;
+      const res = await fetch(url, { method: 'DELETE' });
+      const data = await res.json();
+
+      if (!res.ok) {
+        if (data.hasProducts) {
+          setCategoryDeleteWarning({ name: catName, count: data.count || 1 });
+        }
+        showToast(data.error || 'Failed to delete collection');
+        return;
+      }
+
+      if (data.categories) {
+        setCategoriesList(data.categories);
+        setCategories(data.categories.map((c: Category) => c.name));
+      } else {
+        setCategoriesList((prev) => prev.filter((c) => c.name.toLowerCase() !== catName.toLowerCase()));
+        setCategories((prev) => prev.filter((c) => c.toLowerCase() !== catName.toLowerCase()));
+      }
+
+      if (deleteProducts) {
+        setProducts((prev) => prev.filter((p) => !(p.categories || []).some((c) => c.toLowerCase() === catName.toLowerCase())));
+      }
+
+      showToast(data.message || `Collection "${catName}" removed`);
+      setCategoryDeleteWarning(null);
+    } catch (err: any) {
+      showToast(err.message || 'Error deleting collection');
+    }
+  };
+
+  // Reviews CRUD handlers
+  const handleAddReview = async (imageUrl: string) => {
+    if (!imageUrl) return;
+    try {
+      const res = await fetch('/api/reviews', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          watchImage: imageUrl,
+          watchModel: reviewCaptionInput.trim() || 'Rolex Luxury Timepiece',
+          replyMessage: reviewMessageInput.trim() || 'Parcel received safely! The finishing and weight are outstanding. 100% satisfied!',
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || 'Failed to save review');
+      }
+      setReviewsList(data.reviews);
+      setReviewSliderIndex(0);
+      setReviewCaptionInput('');
+      setReviewMessageInput('');
+      showToast('Review photo added to home page slider!');
+    } catch (err: any) {
+      showToast(err.message || 'Error adding review');
+    }
+  };
+
+  const handleDeleteReview = async (id: number) => {
+    try {
+      const res = await fetch(`/api/reviews?id=${id}`, { method: 'DELETE' });
+      const data = await res.json();
+      if (data.reviews) {
+        setReviewsList(data.reviews);
+        setReviewSliderIndex((prev) => Math.max(0, Math.min(prev, data.reviews.length - 1)));
+      } else {
+        setReviewsList((prev) => prev.filter((r) => r.id !== id));
+      }
+      showToast('Review removed from home page slider');
+    } catch {
+      showToast('Error removing review');
+    }
+  };
+
+  const handleMoveReview = async (fromIndex: number, toIndex: number) => {
+    if (toIndex < 0 || toIndex >= reviewsList.length) return;
+    const updated = [...reviewsList];
+    const [moved] = updated.splice(fromIndex, 1);
+    updated.splice(toIndex, 0, moved);
+    setReviewsList(updated);
+    setReviewSliderIndex(toIndex);
+
+    try {
+      await fetch('/api/reviews', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reviews: updated }),
+      });
+      showToast('Slider sequence updated');
+    } catch {
+      showToast('Error saving slider order');
     }
   };
 
@@ -441,8 +739,14 @@ export function AdminDashboardClient({
           p.brand?.toLowerCase().includes(q) ||
           p.categories?.some((c) => c.toLowerCase().includes(q));
 
-        const matchesBrand = selectedBrand === 'all' || p.brand === selectedBrand;
-        const matchesCategory = selectedCategory === 'all' || p.categories?.includes(selectedCategory);
+        const matchesBrand =
+          selectedBrand === 'all' ||
+          (p.brand || '').trim().toLowerCase() === selectedBrand.trim().toLowerCase();
+        const matchesCategory =
+          selectedCategory === 'all' ||
+          (p.categories || []).some(
+            (c) => c.trim().toLowerCase() === selectedCategory.trim().toLowerCase()
+          );
 
         const stock = p.stock ?? 0;
         const matchesStock =
@@ -490,6 +794,23 @@ export function AdminDashboardClient({
     const start = (ordersPage - 1) * ordersPerPage;
     return filteredOrders.slice(start, start + ordersPerPage);
   }, [filteredOrders, ordersPage]);
+
+  // Brands & Collections filtered lists
+  const filteredBrands = useMemo(() => {
+    if (!brandSearch.trim()) return brandsList;
+    const q = brandSearch.toLowerCase();
+    return brandsList.filter(
+      (b) => b.name.toLowerCase().includes(q) || (b.description && b.description.toLowerCase().includes(q))
+    );
+  }, [brandsList, brandSearch]);
+
+  const filteredCategories = useMemo(() => {
+    if (!categorySearch.trim()) return categoriesList;
+    const q = categorySearch.toLowerCase();
+    return categoriesList.filter(
+      (c) => c.name.toLowerCase().includes(q) || (c.description && c.description.toLowerCase().includes(q))
+    );
+  }, [categoriesList, categorySearch]);
 
   // Customers data derived from real orders & fallback
   const customersList = useMemo<CustomerProfile[]>(() => {
@@ -988,6 +1309,26 @@ export function AdminDashboardClient({
 
           <button
             type="button"
+            className={`admin-nav-btn ${activeScreen === 'brands' ? 'active' : ''}`}
+            onClick={() => setActiveScreen('brands')}
+          >
+            <span className="admin-nav-icon"><Award size={17} /></span>
+            <span>Brands</span>
+            <span className="admin-count-pill">{brandsList.length}</span>
+          </button>
+
+          <button
+            type="button"
+            className={`admin-nav-btn ${activeScreen === 'collections' ? 'active' : ''}`}
+            onClick={() => setActiveScreen('collections')}
+          >
+            <span className="admin-nav-icon"><Layers size={17} /></span>
+            <span>Collections</span>
+            <span className="admin-count-pill">{categoriesList.length}</span>
+          </button>
+
+          <button
+            type="button"
             className={`admin-nav-btn ${activeScreen === 'orders' ? 'active' : ''}`}
             onClick={() => setActiveScreen('orders')}
           >
@@ -1021,6 +1362,16 @@ export function AdminDashboardClient({
           >
             <span className="admin-nav-icon"><Settings size={17} /></span>
             <span>Store Configuration</span>
+          </button>
+
+          <button
+            type="button"
+            className={`admin-nav-btn ${activeScreen === 'reviews' ? 'active' : ''}`}
+            onClick={() => setActiveScreen('reviews')}
+          >
+            <span className="admin-nav-icon"><FileText size={17} /></span>
+            <span>Customer Reviews</span>
+            <span className="admin-count-pill">{reviewsList.length}</span>
           </button>
         </nav>
 
@@ -1505,6 +1856,994 @@ export function AdminDashboardClient({
                   </div>
                 </div>
               </div>
+            </div>
+          )}
+
+          {/* SCREEN: BRANDS & MAISONS */}
+          {activeScreen === 'brands' && (
+            <div>
+              {/* Luxury Blue Banner */}
+              <div
+                style={{
+                  background: 'linear-gradient(135deg, #1e3a8a 0%, #2563eb 100%)',
+                  borderRadius: 12,
+                  padding: '18px 22px',
+                  marginBottom: 22,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  gap: 16,
+                  boxShadow: '0 4px 20px rgba(37, 99, 235, 0.25)',
+                  flexWrap: 'wrap',
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+                  <div
+                    style={{
+                      width: 44,
+                      height: 44,
+                      borderRadius: 10,
+                      background: 'rgba(255, 255, 255, 0.15)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      color: '#fff',
+                      flexShrink: 0,
+                    }}
+                  >
+                    <Award size={24} />
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 16, fontWeight: 700, color: '#fff' }}>
+                      Luxury Brand Maisons &amp; Storefront Mapping
+                    </div>
+                    <div style={{ fontSize: 12, color: 'rgba(255, 255, 255, 0.9)', marginTop: 2 }}>
+                      All brands registered here map directly to the buyer storefront (<code style={{ background: 'rgba(0,0,0,0.2)', padding: '2px 6px', borderRadius: 4 }}>/shop?brand=...</code>) and inventory filters.
+                    </div>
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+                  <a
+                    href="/shop"
+                    target="_blank"
+                    rel="noreferrer"
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: 6,
+                      background: 'rgba(255, 255, 255, 0.15)',
+                      color: '#fff',
+                      border: '1px solid rgba(255, 255, 255, 0.3)',
+                      padding: '9px 15px',
+                      borderRadius: 8,
+                      fontSize: 12,
+                      fontWeight: 600,
+                      textDecoration: 'none',
+                      transition: 'all 0.2s',
+                    }}
+                  >
+                    <span>Storefront Catalog</span>
+                    <ExternalLink size={13} />
+                  </a>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setNewBrandName('');
+                      setNewBrandLogo('');
+                      setNewBrandDescription('');
+                      setIsAddBrandModalOpen(true);
+                    }}
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: 8,
+                      background: '#ffffff',
+                      color: '#1e3a8a',
+                      border: 'none',
+                      padding: '10px 18px',
+                      borderRadius: 8,
+                      fontSize: 13,
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                      boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                      transition: 'transform 0.15s ease',
+                    }}
+                  >
+                    <Plus size={16} />
+                    <span>Add Brand</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* 4 KPI Metrics Cards */}
+              <div className="metrics" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))' }}>
+                <div className="metric">
+                  <div className="metric-head">
+                    <span>Total Brands</span>
+                    <span className="metric-icon"><Award size={15} /></span>
+                  </div>
+                  <div className="metric-value">{brandsList.length}</div>
+                  <div className="metric-note">Configured luxury maisons</div>
+                </div>
+
+                <div className="metric good">
+                  <div className="metric-head">
+                    <span>Active in Catalog</span>
+                    <span className="metric-icon"><Package size={15} /></span>
+                  </div>
+                  <div className="metric-value">
+                    {brandsList.filter((b) => (b.productCount ?? 0) > 0).length}
+                  </div>
+                  <div className="metric-note">Brands with available stock</div>
+                </div>
+
+                <div className="metric blue">
+                  <div className="metric-head">
+                    <span>Catalog Brand Value</span>
+                    <span className="metric-icon">₹</span>
+                  </div>
+                  <div className="metric-value">
+                    ₹{brandsList.reduce((acc, b) => acc + (b.totalValue ?? 0), 0).toLocaleString('en-IN')}
+                  </div>
+                  <div className="metric-note">Total stock valuation</div>
+                </div>
+
+                <div className="metric">
+                  <div className="metric-head">
+                    <span>Catalog Coverage</span>
+                    <span className="metric-icon"><CheckCircle2 size={15} /></span>
+                  </div>
+                  <div className="metric-value">
+                    {products.length > 0
+                      ? `${Math.round((products.filter((p) => !!p.brand).length / products.length) * 100)}%`
+                      : '100%'}
+                  </div>
+                  <div className="metric-note">Products linked to brands</div>
+                </div>
+              </div>
+
+              {/* Search & Action Bar */}
+              <div
+                style={{
+                  background: 'var(--admin-surface)',
+                  border: '1px solid var(--admin-border)',
+                  borderRadius: 12,
+                  padding: '14px 18px',
+                  marginBottom: 20,
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  gap: 14,
+                  flexWrap: 'wrap',
+                }}
+              >
+                <div style={{ position: 'relative', flex: 1, minWidth: 260 }}>
+                  <Search
+                    size={16}
+                    style={{
+                      position: 'absolute',
+                      left: 12,
+                      top: '50%',
+                      transform: 'translateY(-50%)',
+                      color: 'var(--admin-muted)',
+                    }}
+                  />
+                  <input
+                    type="text"
+                    className="search-input"
+                    placeholder="Search brand name or description..."
+                    value={brandSearch}
+                    onChange={(e) => setBrandSearch(e.target.value)}
+                    style={{
+                      width: '100%',
+                      padding: '9px 12px 9px 36px',
+                      borderRadius: 8,
+                      border: '1px solid var(--admin-border)',
+                      background: 'var(--admin-bg)',
+                      color: 'var(--admin-ink)',
+                      fontSize: 13,
+                    }}
+                  />
+                </div>
+
+                <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+                  <div style={{ fontSize: 12, color: 'var(--admin-muted)', fontWeight: 600 }}>
+                    Showing {filteredBrands.length} of {brandsList.length} brands
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setNewBrandName('');
+                      setNewBrandLogo('');
+                      setNewBrandDescription('');
+                      setIsAddBrandModalOpen(true);
+                    }}
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: 6,
+                      background: 'linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)',
+                      color: '#fff',
+                      border: 'none',
+                      padding: '9px 16px',
+                      borderRadius: 8,
+                      fontSize: 12,
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                      boxShadow: '0 2px 8px rgba(37, 99, 235, 0.3)',
+                    }}
+                  >
+                    <Plus size={14} />
+                    <span>Add Brand</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Brands Grid */}
+              {filteredBrands.length > 0 ? (
+                <div
+                  style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(auto-fill, minmax(310px, 1fr))',
+                    gap: 18,
+                    marginBottom: 30,
+                  }}
+                >
+                  {filteredBrands.map((brand) => {
+                    const count = brand.productCount ?? 0;
+                    const value = brand.totalValue ?? 0;
+                    const storefrontUrl = `/shop?brand=${encodeURIComponent(brand.name)}`;
+
+                    return (
+                      <div
+                        key={brand.id || brand.name}
+                        style={{
+                          background: 'var(--admin-surface)',
+                          border: '1px solid var(--admin-border)',
+                          borderRadius: 14,
+                          padding: 18,
+                          display: 'flex',
+                          flexDirection: 'column',
+                          justifyContent: 'space-between',
+                          boxShadow: '0 2px 8px rgba(0,0,0,0.03)',
+                          transition: 'transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease',
+                          position: 'relative',
+                        }}
+                      >
+                        {/* Top Card Row */}
+                        <div>
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginBottom: 12 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                              {brand.logo ? (
+                                <img
+                                  src={brand.logo}
+                                  alt={brand.name}
+                                  style={{
+                                    width: 44,
+                                    height: 44,
+                                    borderRadius: 10,
+                                    objectFit: 'contain',
+                                    background: '#f8fafc',
+                                    border: '1px solid var(--admin-border)',
+                                    padding: 4,
+                                  }}
+                                  onError={(e) => {
+                                    (e.target as HTMLElement).style.display = 'none';
+                                  }}
+                                />
+                              ) : (
+                                <div
+                                  style={{
+                                    width: 44,
+                                    height: 44,
+                                    borderRadius: 10,
+                                    background: 'linear-gradient(135deg, #1e293b 0%, #0f172a 100%)',
+                                    color: '#f8fafc',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    fontSize: 16,
+                                    fontWeight: 800,
+                                    letterSpacing: 1,
+                                    border: '1px solid rgba(255,255,255,0.1)',
+                                    boxShadow: '0 2px 6px rgba(0,0,0,0.1)',
+                                  }}
+                                >
+                                  {brand.name.slice(0, 2).toUpperCase()}
+                                </div>
+                              )}
+
+                              <div>
+                                <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: 'var(--admin-ink)', letterSpacing: '-0.01em' }}>
+                                  {brand.name}
+                                </h3>
+                                <div style={{ fontSize: 11, color: 'var(--admin-muted)', marginTop: 2 }}>
+                                  {count > 0 ? `${count} timepiece${count > 1 ? 's' : ''} active` : 'No products yet'}
+                                </div>
+                              </div>
+                            </div>
+
+                            <span
+                              style={{
+                                fontSize: 11,
+                                fontWeight: 700,
+                                padding: '4px 10px',
+                                borderRadius: 20,
+                                background: count > 0 ? 'rgba(37, 99, 235, 0.1)' : 'rgba(148, 163, 184, 0.1)',
+                                color: count > 0 ? '#2563eb' : 'var(--admin-muted)',
+                                border: `1px solid ${count > 0 ? 'rgba(37, 99, 235, 0.25)' : 'rgba(148, 163, 184, 0.2)'}`,
+                              }}
+                            >
+                              {count} Watches
+                            </span>
+                          </div>
+
+                          {/* Preview Watch Image & Stats */}
+                          <div
+                            style={{
+                              display: 'flex',
+                              gap: 12,
+                              background: 'var(--admin-bg)',
+                              borderRadius: 10,
+                              padding: 10,
+                              marginBottom: 12,
+                              alignItems: 'center',
+                            }}
+                          >
+                            <div
+                              style={{
+                                width: 50,
+                                height: 50,
+                                borderRadius: 8,
+                                overflow: 'hidden',
+                                background: '#fff',
+                                border: '1px solid var(--admin-border)',
+                                flexShrink: 0,
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                              }}
+                            >
+                              {brand.sampleImage ? (
+                                <img
+                                  src={brand.sampleImage}
+                                  alt={brand.name}
+                                  style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+                                  onError={(e) => {
+                                    (e.target as HTMLImageElement).src =
+                                      'https://watchtown.in/wp-content/uploads/2025/04/luxury-watches.png';
+                                  }}
+                                />
+                              ) : (
+                                <Award size={20} style={{ color: 'var(--admin-muted)', opacity: 0.5 }} />
+                              )}
+                            </div>
+
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <div style={{ fontSize: 11, color: 'var(--admin-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                                Inventory Valuation
+                              </div>
+                              <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--admin-ink)', marginTop: 1 }}>
+                                {value > 0 ? `₹${value.toLocaleString('en-IN')}` : '₹0'}
+                              </div>
+                              <div style={{ fontSize: 11, color: 'var(--admin-muted)', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap', marginTop: 2 }}>
+                                {brand.description || `Curated ${brand.name} timepieces`}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Action Buttons Row */}
+                        <div style={{ display: 'flex', gap: 8, marginTop: 4, alignItems: 'center' }}>
+                          {/* Storefront Link Button */}
+                          <a
+                            href={storefrontUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            style={{
+                              flex: 1,
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              gap: 6,
+                              padding: '8px 12px',
+                              borderRadius: 8,
+                              background: 'var(--admin-bg)',
+                              border: '1px solid var(--admin-border)',
+                              color: 'var(--admin-ink)',
+                              fontSize: 12,
+                              fontWeight: 600,
+                              textDecoration: 'none',
+                              transition: 'background 0.15s ease',
+                            }}
+                            title={`Open /shop?brand=${encodeURIComponent(brand.name)}`}
+                          >
+                            <span>Storefront</span>
+                            <ExternalLink size={12} style={{ color: '#2563eb' }} />
+                          </a>
+
+                          {/* Inventory Filter Button */}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSelectedBrand(brand.name);
+                              setActiveScreen('inventory');
+                            }}
+                            style={{
+                              flex: 1,
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              gap: 5,
+                              padding: '8px 12px',
+                              borderRadius: 8,
+                              background: 'rgba(37, 99, 235, 0.08)',
+                              border: '1px solid rgba(37, 99, 235, 0.2)',
+                              color: '#2563eb',
+                              fontSize: 12,
+                              fontWeight: 600,
+                              cursor: 'pointer',
+                              transition: 'all 0.15s ease',
+                            }}
+                            title="Filter inventory by this brand"
+                          >
+                            <Package size={13} />
+                            <span>Catalog</span>
+                          </button>
+
+                          {/* Delete Button */}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const count = brand.productCount ?? 0;
+                              if (count > 0) {
+                                setBrandDeleteWarning({ name: brand.name, count });
+                              } else {
+                                handleDeleteBrand(brand.name);
+                              }
+                            }}
+                            style={{
+                              width: 34,
+                              height: 34,
+                              borderRadius: 8,
+                              border: '1px solid var(--admin-border)',
+                              background: 'var(--admin-bg)',
+                              color: 'var(--admin-muted)',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              cursor: 'pointer',
+                              transition: 'color 0.15s ease',
+                            }}
+                            title={`Delete ${brand.name}`}
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div
+                  style={{
+                    background: 'var(--admin-surface)',
+                    border: '1px dashed var(--admin-border)',
+                    borderRadius: 14,
+                    padding: '48px 24px',
+                    textAlign: 'center',
+                  }}
+                >
+                  <Award size={40} style={{ color: 'var(--admin-muted)', opacity: 0.4, marginBottom: 12 }} />
+                  <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--admin-ink)' }}>No Brands Found</div>
+                  <div style={{ fontSize: 13, color: 'var(--admin-muted)', marginTop: 4, marginBottom: 16 }}>
+                    {brandSearch ? `No brands matching "${brandSearch}".` : 'No brands registered in catalog.'}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setNewBrandName('');
+                      setNewBrandLogo('');
+                      setNewBrandDescription('');
+                      setIsAddBrandModalOpen(true);
+                    }}
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: 6,
+                      background: '#2563eb',
+                      color: '#fff',
+                      border: 'none',
+                      padding: '9px 16px',
+                      borderRadius: 8,
+                      fontSize: 13,
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                    }}
+                  >
+                    <Plus size={15} />
+                    <span>Add New Brand</span>
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* SCREEN: COLLECTIONS & CATEGORIES */}
+          {activeScreen === 'collections' && (
+            <div>
+              {/* Luxury Purple Banner */}
+              <div
+                style={{
+                  background: 'linear-gradient(135deg, #312e81 0%, #4f46e5 100%)',
+                  borderRadius: 12,
+                  padding: '18px 22px',
+                  marginBottom: 22,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  gap: 16,
+                  boxShadow: '0 4px 20px rgba(79, 70, 229, 0.25)',
+                  flexWrap: 'wrap',
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+                  <div
+                    style={{
+                      width: 44,
+                      height: 44,
+                      borderRadius: 10,
+                      background: 'rgba(255, 255, 255, 0.15)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      color: '#fff',
+                      flexShrink: 0,
+                    }}
+                  >
+                    <Layers size={24} />
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 16, fontWeight: 700, color: '#fff' }}>
+                      Watch Collections &amp; Storefront Categories
+                    </div>
+                    <div style={{ fontSize: 12, color: 'rgba(255, 255, 255, 0.9)', marginTop: 2 }}>
+                      All collections registered here map directly to buyer storefront filters (<code style={{ background: 'rgba(0,0,0,0.2)', padding: '2px 6px', borderRadius: 4 }}>/shop?category=...</code>).
+                    </div>
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+                  <a
+                    href="/shop"
+                    target="_blank"
+                    rel="noreferrer"
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: 6,
+                      background: 'rgba(255, 255, 255, 0.15)',
+                      color: '#fff',
+                      border: '1px solid rgba(255, 255, 255, 0.3)',
+                      padding: '9px 15px',
+                      borderRadius: 8,
+                      fontSize: 12,
+                      fontWeight: 600,
+                      textDecoration: 'none',
+                      transition: 'all 0.2s',
+                    }}
+                  >
+                    <span>Storefront Catalog</span>
+                    <ExternalLink size={13} />
+                  </a>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setNewCategoryName('');
+                      setNewCategoryImage('');
+                      setNewCategoryDescription('');
+                      setIsAddCategoryModalOpen(true);
+                    }}
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: 8,
+                      background: '#ffffff',
+                      color: '#312e81',
+                      border: 'none',
+                      padding: '10px 18px',
+                      borderRadius: 8,
+                      fontSize: 13,
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                      boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                      transition: 'transform 0.15s ease',
+                    }}
+                  >
+                    <Plus size={16} />
+                    <span>Add Collection / Category</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* 3 KPI Metrics Cards */}
+              <div className="metrics" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))' }}>
+                <div className="metric">
+                  <div className="metric-head">
+                    <span>Total Collections</span>
+                    <span className="metric-icon"><Layers size={15} /></span>
+                  </div>
+                  <div className="metric-value">{categoriesList.length}</div>
+                  <div className="metric-note">Curated styles &amp; movements</div>
+                </div>
+
+                <div className="metric good">
+                  <div className="metric-head">
+                    <span>Categorized Products</span>
+                    <span className="metric-icon"><CheckCircle2 size={15} /></span>
+                  </div>
+                  <div className="metric-value">
+                    {products.filter((p) => p.categories && p.categories.length > 0).length}
+                  </div>
+                  <div className="metric-note">Watches mapped to collections</div>
+                </div>
+
+                <div className="metric blue">
+                  <div className="metric-head">
+                    <span>Storefront Sync</span>
+                    <span className="metric-icon"><RefreshCw size={15} /></span>
+                  </div>
+                  <div className="metric-value">100% Live</div>
+                  <div className="metric-note">Synced with /shop dropdowns</div>
+                </div>
+              </div>
+
+              {/* Search & Action Bar */}
+              <div
+                style={{
+                  background: 'var(--admin-surface)',
+                  border: '1px solid var(--admin-border)',
+                  borderRadius: 12,
+                  padding: '14px 18px',
+                  marginBottom: 20,
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  gap: 14,
+                  flexWrap: 'wrap',
+                }}
+              >
+                <div style={{ position: 'relative', flex: 1, minWidth: 260 }}>
+                  <Search
+                    size={16}
+                    style={{
+                      position: 'absolute',
+                      left: 12,
+                      top: '50%',
+                      transform: 'translateY(-50%)',
+                      color: 'var(--admin-muted)',
+                    }}
+                  />
+                  <input
+                    type="text"
+                    className="search-input"
+                    placeholder="Search collection name or style..."
+                    value={categorySearch}
+                    onChange={(e) => setCategorySearch(e.target.value)}
+                    style={{
+                      width: '100%',
+                      padding: '9px 12px 9px 36px',
+                      borderRadius: 8,
+                      border: '1px solid var(--admin-border)',
+                      background: 'var(--admin-bg)',
+                      color: 'var(--admin-ink)',
+                      fontSize: 13,
+                    }}
+                  />
+                </div>
+
+                <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+                  <div style={{ fontSize: 12, color: 'var(--admin-muted)', fontWeight: 600 }}>
+                    Showing {filteredCategories.length} of {categoriesList.length} collections
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setNewCategoryName('');
+                      setNewCategoryImage('');
+                      setNewCategoryDescription('');
+                      setIsAddCategoryModalOpen(true);
+                    }}
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: 6,
+                      background: 'linear-gradient(135deg, #4f46e5 0%, #4338ca 100%)',
+                      color: '#fff',
+                      border: 'none',
+                      padding: '9px 16px',
+                      borderRadius: 8,
+                      fontSize: 12,
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                      boxShadow: '0 2px 8px rgba(79, 70, 229, 0.3)',
+                    }}
+                  >
+                    <Plus size={14} />
+                    <span>Add Collection</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Collections Grid */}
+              {filteredCategories.length > 0 ? (
+                <div
+                  style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(auto-fill, minmax(310px, 1fr))',
+                    gap: 18,
+                    marginBottom: 30,
+                  }}
+                >
+                  {filteredCategories.map((cat) => {
+                    const count = cat.productCount ?? 0;
+                    const storefrontUrl = `/shop?category=${encodeURIComponent(cat.name)}`;
+
+                    return (
+                      <div
+                        key={cat.id || cat.name}
+                        style={{
+                          background: 'var(--admin-surface)',
+                          border: '1px solid var(--admin-border)',
+                          borderRadius: 14,
+                          padding: 18,
+                          display: 'flex',
+                          flexDirection: 'column',
+                          justifyContent: 'space-between',
+                          boxShadow: '0 2px 8px rgba(0,0,0,0.03)',
+                          transition: 'transform 0.15s ease, box-shadow 0.15s ease',
+                        }}
+                      >
+                        {/* Top Card Row */}
+                        <div>
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginBottom: 12 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                              <div
+                                style={{
+                                  width: 44,
+                                  height: 44,
+                                  borderRadius: 10,
+                                  background: 'linear-gradient(135deg, #312e81 0%, #1e1b4b 100%)',
+                                  color: '#e0e7ff',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  fontSize: 16,
+                                  fontWeight: 800,
+                                  border: '1px solid rgba(255,255,255,0.1)',
+                                }}
+                              >
+                                <Layers size={20} />
+                              </div>
+
+                              <div>
+                                <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: 'var(--admin-ink)', letterSpacing: '-0.01em' }}>
+                                  {cat.name}
+                                </h3>
+                                <div style={{ fontSize: 11, color: 'var(--admin-muted)', marginTop: 2 }}>
+                                  {count > 0 ? `${count} timepiece${count > 1 ? 's' : ''} classified` : 'No products mapped yet'}
+                                </div>
+                              </div>
+                            </div>
+
+                            <span
+                              style={{
+                                fontSize: 11,
+                                fontWeight: 700,
+                                padding: '4px 10px',
+                                borderRadius: 20,
+                                background: count > 0 ? 'rgba(79, 70, 229, 0.1)' : 'rgba(148, 163, 184, 0.1)',
+                                color: count > 0 ? '#4f46e5' : 'var(--admin-muted)',
+                                border: `1px solid ${count > 0 ? 'rgba(79, 70, 229, 0.25)' : 'rgba(148, 163, 184, 0.2)'}`,
+                              }}
+                            >
+                              {count} Models
+                            </span>
+                          </div>
+
+                          {/* Preview Watch Image & Description */}
+                          <div
+                            style={{
+                              display: 'flex',
+                              gap: 12,
+                              background: 'var(--admin-bg)',
+                              borderRadius: 10,
+                              padding: 10,
+                              marginBottom: 12,
+                              alignItems: 'center',
+                            }}
+                          >
+                            <div
+                              style={{
+                                width: 50,
+                                height: 50,
+                                borderRadius: 8,
+                                overflow: 'hidden',
+                                background: '#fff',
+                                border: '1px solid var(--admin-border)',
+                                flexShrink: 0,
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                              }}
+                            >
+                              {cat.sampleImage ? (
+                                <img
+                                  src={cat.sampleImage}
+                                  alt={cat.name}
+                                  style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+                                  onError={(e) => {
+                                    (e.target as HTMLImageElement).src =
+                                      'https://watchtown.in/wp-content/uploads/2025/04/luxury-watches.png';
+                                  }}
+                                />
+                              ) : (
+                                <Layers size={20} style={{ color: 'var(--admin-muted)', opacity: 0.5 }} />
+                              )}
+                            </div>
+
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <div style={{ fontSize: 11, color: 'var(--admin-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                                Collection Filter
+                              </div>
+                              <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--admin-ink)', marginTop: 1 }}>
+                                {cat.name}
+                              </div>
+                              <div style={{ fontSize: 11, color: 'var(--admin-muted)', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap', marginTop: 2 }}>
+                                {cat.description || `Explore ${cat.name} collection at WatchTown`}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Action Buttons Row */}
+                        <div style={{ display: 'flex', gap: 8, marginTop: 4, alignItems: 'center' }}>
+                          {/* Storefront Link Button */}
+                          <a
+                            href={storefrontUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            style={{
+                              flex: 1,
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              gap: 6,
+                              padding: '8px 12px',
+                              borderRadius: 8,
+                              background: 'var(--admin-bg)',
+                              border: '1px solid var(--admin-border)',
+                              color: 'var(--admin-ink)',
+                              fontSize: 12,
+                              fontWeight: 600,
+                              textDecoration: 'none',
+                              transition: 'background 0.15s ease',
+                            }}
+                            title={`Open /shop?category=${encodeURIComponent(cat.name)}`}
+                          >
+                            <span>Storefront</span>
+                            <ExternalLink size={12} style={{ color: '#4f46e5' }} />
+                          </a>
+
+                          {/* Inventory Filter Button */}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSelectedCategory(cat.name);
+                              setActiveScreen('inventory');
+                            }}
+                            style={{
+                              flex: 1,
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              gap: 5,
+                              padding: '8px 12px',
+                              borderRadius: 8,
+                              background: 'rgba(79, 70, 229, 0.08)',
+                              border: '1px solid rgba(79, 70, 229, 0.2)',
+                              color: '#4f46e5',
+                              fontSize: 12,
+                              fontWeight: 600,
+                              cursor: 'pointer',
+                              transition: 'all 0.15s ease',
+                            }}
+                            title="Filter inventory by this collection"
+                          >
+                            <Package size={13} />
+                            <span>Catalog</span>
+                          </button>
+
+                          {/* Delete Button */}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const count = cat.productCount ?? 0;
+                              if (count > 0) {
+                                setCategoryDeleteWarning({ name: cat.name, count });
+                              } else {
+                                handleDeleteCategory(cat.name);
+                              }
+                            }}
+                            style={{
+                              width: 34,
+                              height: 34,
+                              borderRadius: 8,
+                              border: '1px solid var(--admin-border)',
+                              background: 'var(--admin-bg)',
+                              color: 'var(--admin-muted)',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              cursor: 'pointer',
+                              transition: 'color 0.15s ease',
+                            }}
+                            title={`Delete ${cat.name}`}
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div
+                  style={{
+                    background: 'var(--admin-surface)',
+                    border: '1px dashed var(--admin-border)',
+                    borderRadius: 14,
+                    padding: '48px 24px',
+                    textAlign: 'center',
+                  }}
+                >
+                  <Layers size={40} style={{ color: 'var(--admin-muted)', opacity: 0.4, marginBottom: 12 }} />
+                  <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--admin-ink)' }}>No Collections Found</div>
+                  <div style={{ fontSize: 13, color: 'var(--admin-muted)', marginTop: 4, marginBottom: 16 }}>
+                    {categorySearch ? `No collections matching "${categorySearch}".` : 'No collections configured.'}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setNewCategoryName('');
+                      setNewCategoryImage('');
+                      setNewCategoryDescription('');
+                      setIsAddCategoryModalOpen(true);
+                    }}
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: 6,
+                      background: '#4f46e5',
+                      color: '#fff',
+                      border: 'none',
+                      padding: '9px 16px',
+                      borderRadius: 8,
+                      fontSize: 13,
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                    }}
+                  >
+                    <Plus size={15} />
+                    <span>Add New Collection</span>
+                  </button>
+                </div>
+              )}
             </div>
           )}
 
@@ -2660,6 +3999,372 @@ export function AdminDashboardClient({
               </div>
             </div>
           )}
+
+          {/* SCREEN 6: CUSTOMER REVIEWS SLIDER MANAGER */}
+          {activeScreen === 'reviews' && (
+            <div>
+              {/* Info Banner — Luxury Executive Blue Theme */}
+              <div style={{ background: 'linear-gradient(135deg, #1e40af 0%, #2563eb 100%)', borderRadius: 12, padding: '16px 22px', marginBottom: 22, display: 'flex', alignItems: 'center', gap: 14, boxShadow: '0 4px 20px rgba(37, 99, 235, 0.25)' }}>
+                <FileText size={20} style={{ color: '#fff', flexShrink: 0 }} />
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: '#fff' }}>Customer Reviews Slider — Live Home Page Sync</div>
+                  <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.9)', marginTop: 2 }}>
+                    Any photo added here is immediately saved to the store database and appears in the Customer Reviews slider on the home page.
+                  </div>
+                </div>
+                <a
+                  href="/#customer-reviews"
+                  target="_blank"
+                  rel="noreferrer"
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 6,
+                    background: 'rgba(255, 255, 255, 0.2)',
+                    color: '#fff',
+                    border: '1px solid rgba(255, 255, 255, 0.35)',
+                    padding: '8px 14px',
+                    borderRadius: 8,
+                    fontSize: 12,
+                    fontWeight: 700,
+                    textDecoration: 'none',
+                    backdropFilter: 'blur(4px)',
+                    transition: 'all 0.2s',
+                  }}
+                >
+                  <span>View on Home</span>
+                  <ExternalLink size={13} />
+                </a>
+              </div>
+
+              {/* Slider Live Preview */}
+              <div style={{ background: 'var(--admin-surface)', border: '1px solid var(--admin-border)', borderRadius: 12, overflow: 'hidden', marginBottom: 24 }}>
+                <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--admin-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--admin-ink)' }}>Home Page Slider Preview</div>
+                    <div style={{ fontSize: 11, color: 'var(--admin-muted)', marginTop: 2 }}>This is how testimonials display to buyers on the homepage</div>
+                  </div>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: '#2563eb' }}>{reviewsList.length} reviews in slider</div>
+                </div>
+
+                {reviewsList.length > 0 ? (
+                  <div style={{ position: 'relative', background: '#0a0a0a', minHeight: 460, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '30px 20px' }}>
+                    {/* Clean Full Screenshot Card in preview */}
+                    <div style={{ width: 340, maxWidth: '100%', height: 440, background: '#121b22', border: '1px solid #233138', borderRadius: 16, overflow: 'hidden', boxShadow: '0 12px 36px rgba(0,0,0,0.6)', display: 'flex', flexDirection: 'column', position: 'relative' }}>
+                      <div style={{ flex: 1, background: '#070b0e', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative', overflow: 'hidden' }}>
+                        {reviewsList[reviewSliderIndex]?.watchImage ? (
+                          <img
+                            src={reviewsList[reviewSliderIndex]?.watchImage}
+                            alt={reviewsList[reviewSliderIndex]?.watchModel}
+                            style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block' }}
+                            onError={(e) => { (e.target as HTMLImageElement).src = 'https://watchtown.in/wp-content/uploads/2025/04/luxury-watches.png'; }}
+                          />
+                        ) : (
+                          <div style={{ color: '#8696a0', fontSize: 12 }}>No photo attached</div>
+                        )}
+                        <span style={{ position: 'absolute', top: 10, right: 10, background: '#2563eb', color: '#fff', fontSize: 10, fontWeight: 600, padding: '3px 8px', borderRadius: 12, boxShadow: '0 2px 6px rgba(37,99,235,0.4)' }}>
+                          Whole Screenshot
+                        </span>
+                      </div>
+                      {reviewsList[reviewSliderIndex]?.watchModel && reviewsList[reviewSliderIndex]?.watchModel !== 'test' && reviewsList[reviewSliderIndex]?.watchModel !== 'Luxury Timepiece' && (
+                        <div style={{ padding: '10px 14px', background: '#1f2c34', borderTop: '1px solid #2a3942', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <span style={{ color: '#60a5fa', fontWeight: 600, fontSize: 12 }}>{reviewsList[reviewSliderIndex]?.watchModel}</span>
+                          <span style={{ color: '#8696a0', fontSize: 11 }}>{reviewsList[reviewSliderIndex]?.dateStr}</span>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Prev/Next */}
+                    {reviewsList.length > 1 && (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => setReviewSliderIndex((i) => (i - 1 + reviewsList.length) % reviewsList.length)}
+                          style={{ position: 'absolute', left: 16, top: '50%', transform: 'translateY(-50%)', background: 'rgba(255,255,255,0.18)', border: 'none', borderRadius: '50%', width: 42, height: 42, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#fff', boxShadow: '0 4px 12px rgba(0,0,0,0.5)' }}
+                          title="Previous slide"
+                        >
+                          <ChevronLeft size={20} />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setReviewSliderIndex((i) => (i + 1) % reviewsList.length)}
+                          style={{ position: 'absolute', right: 16, top: '50%', transform: 'translateY(-50%)', background: 'rgba(255,255,255,0.18)', border: 'none', borderRadius: '50%', width: 42, height: 42, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#fff', boxShadow: '0 4px 12px rgba(0,0,0,0.5)' }}
+                          title="Next slide"
+                        >
+                          <ChevronRight size={20} />
+                        </button>
+                      </>
+                    )}
+
+                    {/* Dot indicators */}
+                    <div style={{ position: 'absolute', bottom: 12, left: '50%', transform: 'translateX(-50%)', display: 'flex', gap: 6 }}>
+                      {reviewsList.slice(0, 15).map((_, idx) => (
+                        <button
+                          key={idx}
+                          type="button"
+                          onClick={() => setReviewSliderIndex(idx)}
+                          style={{ width: idx === reviewSliderIndex ? 20 : 8, height: 8, borderRadius: 4, background: idx === reviewSliderIndex ? '#2563eb' : 'rgba(255,255,255,0.3)', border: 'none', cursor: 'pointer', transition: 'all 0.2s' }}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                ) : (
+                  <div style={{ minHeight: 220, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 10, color: 'var(--admin-muted)' }}>
+                    <FileText size={36} style={{ opacity: 0.3 }} />
+                    <div style={{ fontSize: 13 }}>No reviews in slider yet. Upload your first review photo below.</div>
+                  </div>
+                )}
+              </div>
+
+              {/* Upload New Review Photo to Slider */}
+              <div style={{ background: 'var(--admin-surface)', border: '1px solid var(--admin-border)', borderRadius: 12, padding: 20, marginBottom: 24 }}>
+                <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--admin-ink)', marginBottom: 4 }}>Add Review Photo to Slider</div>
+                <div style={{ fontSize: 12, color: 'var(--admin-muted)', marginBottom: 16 }}>Upload a photo or proof image from your device. It will immediately show on the home page slider.</div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 14, marginBottom: 14 }}>
+                  <div>
+                    <label style={{ display: 'block', fontSize: 11, color: 'var(--admin-muted)', marginBottom: 5, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Watch Model / Caption</label>
+                    <input
+                      className="search-input"
+                      style={{ width: '100%', padding: '9px 12px', borderRadius: 8, border: '1px solid var(--admin-border)', background: 'var(--admin-bg)', color: 'var(--admin-ink)', fontSize: 13 }}
+                      placeholder="e.g. Rolex Datejust 41 Mint Green"
+                      value={reviewCaptionInput}
+                      onChange={(e) => setReviewCaptionInput(e.target.value)}
+                    />
+                  </div>
+
+                  <div>
+                    <label style={{ display: 'block', fontSize: 11, color: 'var(--admin-muted)', marginBottom: 5, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Customer Review Message (Optional)</label>
+                    <input
+                      className="search-input"
+                      style={{ width: '100%', padding: '9px 12px', borderRadius: 8, border: '1px solid var(--admin-border)', background: 'var(--admin-bg)', color: 'var(--admin-ink)', fontSize: 13 }}
+                      placeholder="e.g. Received! Watch is insane bro! Weight is 10/10 heavy."
+                      value={reviewMessageInput}
+                      onChange={(e) => setReviewMessageInput(e.target.value)}
+                    />
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
+                  {/* Blue Theme File Upload Button */}
+                  <div>
+                    <label
+                      htmlFor="review-file-upload-input"
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: 8,
+                        padding: '10px 22px',
+                        background: reviewUploading ? 'var(--admin-muted)' : 'linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)',
+                        color: '#fff',
+                        borderRadius: 8,
+                        fontSize: 13,
+                        fontWeight: 700,
+                        cursor: reviewUploading ? 'not-allowed' : 'pointer',
+                        transition: 'all 0.2s',
+                        boxShadow: '0 4px 14px rgba(37, 99, 235, 0.35)',
+                      }}
+                    >
+                      <Upload size={15} />
+                      {reviewUploading ? 'Uploading to S3...' : 'Upload Photo from Device'}
+                    </label>
+                    <input
+                      id="review-file-upload-input"
+                      type="file"
+                      accept="image/*"
+                      style={{ display: 'none' }}
+                      disabled={reviewUploading}
+                      onChange={async (e) => {
+                        const file = e.target.files?.[0];
+                        if (!file) return;
+                        setReviewUploading(true);
+                        try {
+                          const fd = new FormData();
+                          fd.append('file', file);
+                          fd.append('folder', 'reviews');
+                          const res = await fetch('/api/admin/upload', { method: 'POST', body: fd });
+                          const data = await res.json();
+                          if (!res.ok) throw new Error(data.error || 'Upload failed');
+                          await handleAddReview(data.url);
+                        } catch (err: any) {
+                          showToast(err.message || 'Upload failed. Please check S3 credentials or paste URL.');
+                        } finally {
+                          setReviewUploading(false);
+                          e.target.value = '';
+                        }
+                      }}
+                    />
+                  </div>
+
+                  <span style={{ fontSize: 12, color: 'var(--admin-muted)' }}>— OR paste image link directly —</span>
+
+                  {/* URL Input with Blue Button */}
+                  <div style={{ display: 'flex', gap: 8, flex: 1, minWidth: 260 }}>
+                    <input
+                      id="review-url-direct-input"
+                      className="search-input"
+                      style={{ flex: 1, padding: '9px 12px', borderRadius: 8, border: '1px solid var(--admin-border)', background: 'var(--admin-bg)', color: 'var(--admin-ink)', fontSize: 13 }}
+                      placeholder="Paste image URL (https://...)"
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          const inp = e.target as HTMLInputElement;
+                          const url = inp.value.trim();
+                          if (url) {
+                            handleAddReview(url);
+                            inp.value = '';
+                          }
+                        }
+                      }}
+                    />
+                    <button
+                      type="button"
+                      style={{
+                        whiteSpace: 'nowrap',
+                        background: '#2563eb',
+                        color: '#fff',
+                        border: 'none',
+                        borderRadius: 8,
+                        padding: '9px 18px',
+                        fontSize: 13,
+                        fontWeight: 600,
+                        cursor: 'pointer',
+                        boxShadow: '0 2px 8px rgba(37, 99, 235, 0.3)',
+                        transition: 'background 0.2s',
+                      }}
+                      onClick={() => {
+                        const inp = document.getElementById('review-url-direct-input') as HTMLInputElement;
+                        const url = inp?.value.trim();
+                        if (url) {
+                          handleAddReview(url);
+                          inp.value = '';
+                        }
+                      }}
+                    >
+                      Add Photo
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Manage All Slider Reviews */}
+              <div style={{ background: 'var(--admin-surface)', border: '1px solid var(--admin-border)', borderRadius: 12, overflow: 'hidden' }}>
+                <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--admin-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--admin-ink)' }}>Manage Slider Cards ({reviewsList.length})</div>
+                    <div style={{ fontSize: 11, color: 'var(--admin-muted)', marginTop: 2 }}>Reorder or remove customer review cards. Position #1 appears first in the home page slider.</div>
+                  </div>
+                </div>
+
+                {reviewsList.length === 0 ? (
+                  <div style={{ padding: 40, textAlign: 'center', color: 'var(--admin-muted)', fontSize: 13 }}>
+                    No reviews in the slider yet. Use the upload box above to add your first photo.
+                  </div>
+                ) : (
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 16, padding: 20 }}>
+                    {reviewsList.map((rev, idx) => (
+                      <div
+                        key={rev.id}
+                        onClick={() => setReviewSliderIndex(idx)}
+                        style={{
+                          position: 'relative',
+                          borderRadius: 10,
+                          overflow: 'hidden',
+                          border: `2px solid ${idx === reviewSliderIndex ? '#2563eb' : 'var(--admin-border)'}`,
+                          cursor: 'pointer',
+                          transition: 'border-color 0.2s',
+                          background: '#121b22',
+                          display: 'flex',
+                          flexDirection: 'column',
+                        }}
+                      >
+                        {/* Image area */}
+                        <div style={{ position: 'relative', height: 150, background: '#0a0a0a', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                          <img
+                            src={rev.watchImage}
+                            alt={rev.watchModel}
+                            style={{ width: '100%', height: '100%', objectFit: 'contain', padding: 8 }}
+                            onError={(e) => { (e.target as HTMLImageElement).src = 'https://watchtown.in/wp-content/uploads/2025/04/luxury-watches.png'; }}
+                          />
+
+                          {/* Position Badge */}
+                          <div style={{ position: 'absolute', top: 8, left: 8, background: idx === reviewSliderIndex ? '#2563eb' : 'rgba(0,0,0,0.7)', color: '#fff', fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 20 }}>
+                            #{idx + 1}
+                          </div>
+
+                          {/* Instant Delete Button — No alert/confirm dialog box popup */}
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDeleteReview(rev.id);
+                            }}
+                            style={{
+                              position: 'absolute',
+                              top: 8,
+                              right: 8,
+                              background: 'rgba(220,38,38,0.92)',
+                              border: 'none',
+                              borderRadius: '50%',
+                              width: 26,
+                              height: 26,
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              cursor: 'pointer',
+                              color: '#fff',
+                              transition: 'transform 0.15s, background 0.15s',
+                            }}
+                            title="Delete review from slider"
+                          >
+                            <X size={13} />
+                          </button>
+                        </div>
+
+                        {/* Details */}
+                        <div style={{ padding: '10px 12px', flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+                          <div>
+                            <div style={{ fontSize: 12, fontWeight: 700, color: '#e9edef', marginBottom: 4, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                              {rev.watchModel}
+                            </div>
+                            <div style={{ fontSize: 11, color: '#8696a0', lineHeight: 1.3, height: 30, overflow: 'hidden' }}>
+                              {rev.replyMessage}
+                            </div>
+                          </div>
+
+                          {/* Move Buttons */}
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 10, paddingTop: 8, borderTop: '1px solid #233138' }}>
+                            <button
+                              type="button"
+                              disabled={idx === 0}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleMoveReview(idx, idx - 1);
+                              }}
+                              style={{ background: 'rgba(255,255,255,0.08)', border: 'none', borderRadius: 4, color: idx === 0 ? 'rgba(255,255,255,0.2)' : '#fff', cursor: idx === 0 ? 'not-allowed' : 'pointer', padding: '4px 8px', display: 'flex', alignItems: 'center', gap: 4, fontSize: 11 }}
+                            >
+                              <ChevronLeft size={13} /> Earlier
+                            </button>
+                            <span style={{ fontSize: 10, color: '#8696a0' }}>{rev.phone}</span>
+                            <button
+                              type="button"
+                              disabled={idx === reviewsList.length - 1}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleMoveReview(idx, idx + 1);
+                              }}
+                              style={{ background: 'rgba(255,255,255,0.08)', border: 'none', borderRadius: 4, color: idx === reviewsList.length - 1 ? 'rgba(255,255,255,0.2)' : '#fff', cursor: idx === reviewsList.length - 1 ? 'not-allowed' : 'pointer', padding: '4px 8px', display: 'flex', alignItems: 'center', gap: 4, fontSize: 11 }}
+                            >
+                              Later <ChevronRight size={13} />
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
         </div>
       </main>
 
@@ -2672,6 +4377,22 @@ export function AdminDashboardClient({
         >
           <Package size={17} />
           <span>Inventory</span>
+        </button>
+        <button
+          type="button"
+          className={`mobile-bottom-btn ${activeScreen === 'brands' ? 'active' : ''}`}
+          onClick={() => setActiveScreen('brands')}
+        >
+          <Award size={17} />
+          <span>Brands</span>
+        </button>
+        <button
+          type="button"
+          className={`mobile-bottom-btn ${activeScreen === 'collections' ? 'active' : ''}`}
+          onClick={() => setActiveScreen('collections')}
+        >
+          <Layers size={17} />
+          <span>Collections</span>
         </button>
         <button
           type="button"
@@ -2705,6 +4426,14 @@ export function AdminDashboardClient({
           <Settings size={17} />
           <span>Settings</span>
         </button>
+        <button
+          type="button"
+          className={`mobile-bottom-btn ${activeScreen === 'reviews' ? 'active' : ''}`}
+          onClick={() => setActiveScreen('reviews')}
+        >
+          <FileText size={17} />
+          <span>Reviews</span>
+        </button>
       </nav>
 
       {/* 4. TIMEPIECE ADD / EDIT MODAL */}
@@ -2712,6 +4441,7 @@ export function AdminDashboardClient({
         <TimepieceModal
           product={editingProduct}
           brands={brands}
+          categories={categories}
           submitting={submitting}
           onClose={() => {
             setIsAddModalOpen(false);
@@ -2719,6 +4449,603 @@ export function AdminDashboardClient({
           }}
           onSave={handleSaveProduct}
         />
+      )}
+
+      {/* 4B. ADD BRAND MODAL */}
+      {isAddBrandModalOpen && (
+        <div className="overlay open" onClick={() => setIsAddBrandModalOpen(false)}>
+          <div className="modal" style={{ maxWidth: 520 }} onClick={(e) => e.stopPropagation()}>
+            <div className="modal-head">
+              <div>
+                <h2 className="modal-title">Add Luxury Brand Maison</h2>
+                <div className="modal-sub">Register brand for storefront catalog discovery &amp; filtering</div>
+              </div>
+              <button
+                type="button"
+                className="modal-close"
+                onClick={() => setIsAddBrandModalOpen(false)}
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            <form onSubmit={handleAddBrand} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+              <div>
+                <label className="field-label" style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--admin-ink)', marginBottom: 6 }}>
+                  Brand Name <span style={{ color: '#ef4444' }}>*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. Richard Mille, Cartier, Hublot, Rolex"
+                  value={newBrandName}
+                  onChange={(e) => setNewBrandName(e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: '10px 12px',
+                    borderRadius: 8,
+                    border: '1px solid var(--admin-border)',
+                    background: 'var(--admin-bg)',
+                    color: 'var(--admin-ink)',
+                    fontSize: 13,
+                  }}
+                  autoFocus
+                />
+              </div>
+
+              <div>
+                <label className="field-label" style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--admin-ink)', marginBottom: 6 }}>
+                  Brand Logo / Crest (Optional)
+                </label>
+                <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+                  <input
+                    type="text"
+                    placeholder="https://... or upload from device"
+                    value={newBrandLogo}
+                    onChange={(e) => setNewBrandLogo(e.target.value)}
+                    style={{
+                      flex: 1,
+                      padding: '10px 12px',
+                      borderRadius: 8,
+                      border: '1px solid var(--admin-border)',
+                      background: 'var(--admin-bg)',
+                      color: 'var(--admin-ink)',
+                      fontSize: 13,
+                    }}
+                  />
+
+                  <label
+                    htmlFor="brand-file-upload-input"
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: 6,
+                      padding: '10px 14px',
+                      background: 'var(--admin-surface)',
+                      border: '1px solid var(--admin-border)',
+                      color: 'var(--admin-ink)',
+                      borderRadius: 8,
+                      fontSize: 12,
+                      fontWeight: 600,
+                      cursor: brandUploading ? 'not-allowed' : 'pointer',
+                      whiteSpace: 'nowrap',
+                    }}
+                  >
+                    <Upload size={14} />
+                    <span>{brandUploading ? 'Uploading...' : 'Upload'}</span>
+                  </label>
+                  <input
+                    id="brand-file-upload-input"
+                    type="file"
+                    accept="image/*"
+                    style={{ display: 'none' }}
+                    disabled={brandUploading}
+                    onChange={async (e) => {
+                      const file = e.target.files?.[0];
+                      if (!file) return;
+                      setBrandUploading(true);
+                      try {
+                        const fd = new FormData();
+                        fd.append('file', file);
+                        fd.append('folder', 'brands');
+                        const res = await fetch('/api/admin/upload', { method: 'POST', body: fd });
+                        const data = await res.json();
+                        if (!res.ok) throw new Error(data.error || 'Upload failed');
+                        setNewBrandLogo(data.url);
+                        showToast('Logo uploaded successfully');
+                      } catch (err: any) {
+                        showToast(err.message || 'Upload failed');
+                      } finally {
+                        setBrandUploading(false);
+                        e.target.value = '';
+                      }
+                    }}
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="field-label" style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--admin-ink)', marginBottom: 6 }}>
+                  Description (Optional)
+                </label>
+                <textarea
+                  rows={3}
+                  placeholder="e.g. Masterful haute horlogerie with avant-garde aesthetics and tourbillon movements."
+                  value={newBrandDescription}
+                  onChange={(e) => setNewBrandDescription(e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: '10px 12px',
+                    borderRadius: 8,
+                    border: '1px solid var(--admin-border)',
+                    background: 'var(--admin-bg)',
+                    color: 'var(--admin-ink)',
+                    fontSize: 13,
+                    resize: 'vertical',
+                  }}
+                />
+              </div>
+
+              <div style={{ background: 'var(--admin-bg)', padding: '10px 14px', borderRadius: 8, border: '1px solid var(--admin-border)', fontSize: 12, color: 'var(--admin-muted)' }}>
+                ℹ️ This brand will be instantly mapped to the storefront (<code style={{ color: '#2563eb' }}>/shop?brand=...</code>) and will appear in product brand selectors.
+              </div>
+
+              <div className="modal-footer" style={{ marginTop: 8, display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
+                <button
+                  type="button"
+                  className="btn"
+                  onClick={() => setIsAddBrandModalOpen(false)}
+                  disabled={submitting}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={submitting || !newBrandName.trim()}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 6,
+                    padding: '10px 20px',
+                    background: 'linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)',
+                    color: '#fff',
+                    border: 'none',
+                    borderRadius: 8,
+                    fontSize: 13,
+                    fontWeight: 700,
+                    cursor: submitting || !newBrandName.trim() ? 'not-allowed' : 'pointer',
+                    boxShadow: '0 2px 8px rgba(37, 99, 235, 0.3)',
+                  }}
+                >
+                  <Plus size={15} />
+                  <span>{submitting ? 'Creating...' : 'Create Brand'}</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* 4C. ADD COLLECTION / CATEGORY MODAL */}
+      {isAddCategoryModalOpen && (
+        <div className="overlay open" onClick={() => setIsAddCategoryModalOpen(false)}>
+          <div className="modal" style={{ maxWidth: 520 }} onClick={(e) => e.stopPropagation()}>
+            <div className="modal-head">
+              <div>
+                <h2 className="modal-title">Add Watch Collection / Category</h2>
+                <div className="modal-sub">Create style classification for storefront catalog filtering</div>
+              </div>
+              <button
+                type="button"
+                className="modal-close"
+                onClick={() => setIsAddCategoryModalOpen(false)}
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            <form onSubmit={handleAddCategory} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+              <div>
+                <label className="field-label" style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--admin-ink)', marginBottom: 6 }}>
+                  Collection / Category Name <span style={{ color: '#ef4444' }}>*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. Skeleton Dial, Tourbillon, Vintage, Men's Watches"
+                  value={newCategoryName}
+                  onChange={(e) => setNewCategoryName(e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: '10px 12px',
+                    borderRadius: 8,
+                    border: '1px solid var(--admin-border)',
+                    background: 'var(--admin-bg)',
+                    color: 'var(--admin-ink)',
+                    fontSize: 13,
+                  }}
+                  autoFocus
+                />
+              </div>
+
+              <div>
+                <label className="field-label" style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--admin-ink)', marginBottom: 6 }}>
+                  Cover / Banner Image (Optional)
+                </label>
+                <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+                  <input
+                    type="text"
+                    placeholder="https://... or upload from device"
+                    value={newCategoryImage}
+                    onChange={(e) => setNewCategoryImage(e.target.value)}
+                    style={{
+                      flex: 1,
+                      padding: '10px 12px',
+                      borderRadius: 8,
+                      border: '1px solid var(--admin-border)',
+                      background: 'var(--admin-bg)',
+                      color: 'var(--admin-ink)',
+                      fontSize: 13,
+                    }}
+                  />
+
+                  <label
+                    htmlFor="cat-file-upload-input"
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: 6,
+                      padding: '10px 14px',
+                      background: 'var(--admin-surface)',
+                      border: '1px solid var(--admin-border)',
+                      color: 'var(--admin-ink)',
+                      borderRadius: 8,
+                      fontSize: 12,
+                      fontWeight: 600,
+                      cursor: categoryUploading ? 'not-allowed' : 'pointer',
+                      whiteSpace: 'nowrap',
+                    }}
+                  >
+                    <Upload size={14} />
+                    <span>{categoryUploading ? 'Uploading...' : 'Upload'}</span>
+                  </label>
+                  <input
+                    id="cat-file-upload-input"
+                    type="file"
+                    accept="image/*"
+                    style={{ display: 'none' }}
+                    disabled={categoryUploading}
+                    onChange={async (e) => {
+                      const file = e.target.files?.[0];
+                      if (!file) return;
+                      setCategoryUploading(true);
+                      try {
+                        const fd = new FormData();
+                        fd.append('file', file);
+                        fd.append('folder', 'categories');
+                        const res = await fetch('/api/admin/upload', { method: 'POST', body: fd });
+                        const data = await res.json();
+                        if (!res.ok) throw new Error(data.error || 'Upload failed');
+                        setNewCategoryImage(data.url);
+                        showToast('Image uploaded successfully');
+                      } catch (err: any) {
+                        showToast(err.message || 'Upload failed');
+                      } finally {
+                        setCategoryUploading(false);
+                        e.target.value = '';
+                      }
+                    }}
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="field-label" style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--admin-ink)', marginBottom: 6 }}>
+                  Description (Optional)
+                </label>
+                <textarea
+                  rows={3}
+                  placeholder="e.g. Intricate skeleton movements and open-worked dial watches."
+                  value={newCategoryDescription}
+                  onChange={(e) => setNewCategoryDescription(e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: '10px 12px',
+                    borderRadius: 8,
+                    border: '1px solid var(--admin-border)',
+                    background: 'var(--admin-bg)',
+                    color: 'var(--admin-ink)',
+                    fontSize: 13,
+                    resize: 'vertical',
+                  }}
+                />
+              </div>
+
+              <div style={{ background: 'var(--admin-bg)', padding: '10px 14px', borderRadius: 8, border: '1px solid var(--admin-border)', fontSize: 12, color: 'var(--admin-muted)' }}>
+                ℹ️ This collection will be instantly available in the storefront filter (<code style={{ color: '#4f46e5' }}>/shop?category=...</code>).
+              </div>
+
+              <div className="modal-footer" style={{ marginTop: 8, display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
+                <button
+                  type="button"
+                  className="btn"
+                  onClick={() => setIsAddCategoryModalOpen(false)}
+                  disabled={submitting}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={submitting || !newCategoryName.trim()}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 6,
+                    padding: '10px 20px',
+                    background: 'linear-gradient(135deg, #4f46e5 0%, #4338ca 100%)',
+                    color: '#fff',
+                    border: 'none',
+                    borderRadius: 8,
+                    fontSize: 13,
+                    fontWeight: 700,
+                    cursor: submitting || !newCategoryName.trim() ? 'not-allowed' : 'pointer',
+                    boxShadow: '0 2px 8px rgba(79, 70, 229, 0.3)',
+                  }}
+                >
+                  <Plus size={15} />
+                  <span>{submitting ? 'Creating...' : 'Create Collection'}</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* 4D. BRAND DELETION ACTIVE WATCHES WARNING MODAL */}
+      {brandDeleteWarning && (
+        <div className="overlay open" onClick={() => setBrandDeleteWarning(null)}>
+          <div className="modal" style={{ maxWidth: 480 }} onClick={(e) => e.stopPropagation()}>
+            <div className="modal-head" style={{ borderBottom: '1px solid var(--admin-border)', paddingBottom: 12 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <div
+                  style={{
+                    width: 36,
+                    height: 36,
+                    borderRadius: 8,
+                    background: 'rgba(245, 158, 11, 0.15)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: '#f59e0b',
+                  }}
+                >
+                  <AlertTriangle size={20} />
+                </div>
+                <div>
+                  <h2 className="modal-title" style={{ fontSize: 16 }}>Cannot Delete Brand Directly</h2>
+                  <div className="modal-sub">Existing active catalog inventory detected</div>
+                </div>
+              </div>
+              <button
+                type="button"
+                className="modal-close"
+                onClick={() => setBrandDeleteWarning(null)}
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            <div style={{ padding: '16px 0', fontSize: 13, color: 'var(--admin-ink)', lineHeight: 1.6 }}>
+              <p style={{ margin: 0 }}>
+                The brand <strong>&ldquo;{brandDeleteWarning.name}&rdquo;</strong> currently has{' '}
+                <strong style={{ color: '#2563eb' }}>{brandDeleteWarning.count} active timepiece(s)</strong> in your store catalog.
+              </p>
+              <p style={{ marginTop: 8, color: 'var(--admin-muted)', fontSize: 12 }}>
+                To maintain catalog stability, you cannot delete a brand while watches are still assigned to it.
+                You can either filter the catalog to delete/reassign those watches first, or delete the brand along with all its watches.
+              </p>
+            </div>
+
+            <div
+              style={{
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 10,
+                marginTop: 8,
+                paddingTop: 14,
+                borderTop: '1px solid var(--admin-border)',
+              }}
+            >
+              {/* Option 1: Manage & Delete Watches First */}
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedBrand(brandDeleteWarning.name);
+                  setActiveScreen('inventory');
+                  setBrandDeleteWarning(null);
+                  showToast(`Showing ${brandDeleteWarning.count} watches under "${brandDeleteWarning.name}". Manage or delete them here.`);
+                }}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 8,
+                  padding: '11px 16px',
+                  background: 'rgba(37, 99, 235, 0.1)',
+                  color: '#2563eb',
+                  border: '1px solid rgba(37, 99, 235, 0.25)',
+                  borderRadius: 8,
+                  fontSize: 13,
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  transition: 'all 0.15s ease',
+                }}
+              >
+                <Package size={16} />
+                <span>Filter &amp; Delete Existing Watches in Catalog ({brandDeleteWarning.count})</span>
+              </button>
+
+              {/* Option 2: Delete Brand and all its watches */}
+              <button
+                type="button"
+                onClick={() => {
+                  handleDeleteBrand(brandDeleteWarning.name, true);
+                }}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 8,
+                  padding: '11px 16px',
+                  background: '#ef4444',
+                  color: '#fff',
+                  border: 'none',
+                  borderRadius: 8,
+                  fontSize: 13,
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  boxShadow: '0 2px 8px rgba(239, 68, 68, 0.3)',
+                }}
+              >
+                <Trash2 size={16} />
+                <span>Delete Brand &amp; All {brandDeleteWarning.count} Watches</span>
+              </button>
+
+              {/* Option 3: Cancel */}
+              <button
+                type="button"
+                className="btn"
+                onClick={() => setBrandDeleteWarning(null)}
+                style={{ padding: '9px 16px', fontSize: 13, marginTop: 4 }}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 4E. COLLECTION DELETION ACTIVE WATCHES WARNING MODAL */}
+      {categoryDeleteWarning && (
+        <div className="overlay open" onClick={() => setCategoryDeleteWarning(null)}>
+          <div className="modal" style={{ maxWidth: 480 }} onClick={(e) => e.stopPropagation()}>
+            <div className="modal-head" style={{ borderBottom: '1px solid var(--admin-border)', paddingBottom: 12 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <div
+                  style={{
+                    width: 36,
+                    height: 36,
+                    borderRadius: 8,
+                    background: 'rgba(245, 158, 11, 0.15)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: '#f59e0b',
+                  }}
+                >
+                  <AlertTriangle size={20} />
+                </div>
+                <div>
+                  <h2 className="modal-title" style={{ fontSize: 16 }}>Cannot Delete Collection Directly</h2>
+                  <div className="modal-sub">Existing active catalog inventory detected</div>
+                </div>
+              </div>
+              <button
+                type="button"
+                className="modal-close"
+                onClick={() => setCategoryDeleteWarning(null)}
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            <div style={{ padding: '16px 0', fontSize: 13, color: 'var(--admin-ink)', lineHeight: 1.6 }}>
+              <p style={{ margin: 0 }}>
+                The collection <strong>&ldquo;{categoryDeleteWarning.name}&rdquo;</strong> currently has{' '}
+                <strong style={{ color: '#4f46e5' }}>{categoryDeleteWarning.count} active timepiece(s)</strong> mapped to it.
+              </p>
+              <p style={{ marginTop: 8, color: 'var(--admin-muted)', fontSize: 12 }}>
+                You can filter the catalog to delete/untag those watches first, or delete the collection along with all mapped watches.
+              </p>
+            </div>
+
+            <div
+              style={{
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 10,
+                marginTop: 8,
+                paddingTop: 14,
+                borderTop: '1px solid var(--admin-border)',
+              }}
+            >
+              {/* Option 1: Manage & Delete Watches in Catalog */}
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedCategory(categoryDeleteWarning.name);
+                  setActiveScreen('inventory');
+                  setCategoryDeleteWarning(null);
+                  showToast(`Showing ${categoryDeleteWarning.count} watches in "${categoryDeleteWarning.name}". Manage or delete them here.`);
+                }}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 8,
+                  padding: '11px 16px',
+                  background: 'rgba(79, 70, 229, 0.1)',
+                  color: '#4f46e5',
+                  border: '1px solid rgba(79, 70, 229, 0.25)',
+                  borderRadius: 8,
+                  fontSize: 13,
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  transition: 'all 0.15s ease',
+                }}
+              >
+                <Package size={16} />
+                <span>Filter &amp; Delete Existing Watches in Catalog ({categoryDeleteWarning.count})</span>
+              </button>
+
+              {/* Option 2: Delete Collection and all its watches */}
+              <button
+                type="button"
+                onClick={() => {
+                  handleDeleteCategory(categoryDeleteWarning.name, true);
+                }}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 8,
+                  padding: '11px 16px',
+                  background: '#ef4444',
+                  color: '#fff',
+                  border: 'none',
+                  borderRadius: 8,
+                  fontSize: 13,
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  boxShadow: '0 2px 8px rgba(239, 68, 68, 0.3)',
+                }}
+              >
+                <Trash2 size={16} />
+                <span>Delete Collection &amp; All {categoryDeleteWarning.count} Watches</span>
+              </button>
+
+              {/* Option 3: Cancel */}
+              <button
+                type="button"
+                className="btn"
+                onClick={() => setCategoryDeleteWarning(null)}
+                style={{ padding: '9px 16px', fontSize: 13, marginTop: 4 }}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* 5. ORDER DOSSIER MODAL */}
@@ -2820,34 +5147,49 @@ export function AdminDashboardClient({
 interface TimepieceModalProps {
   product: Product | null;
   brands: string[];
+  categories?: string[];
   submitting: boolean;
   onClose: () => void;
   onSave: (data: Partial<Product>) => Promise<void>;
 }
 
-function TimepieceModal({ product, brands, submitting, onClose, onSave }: TimepieceModalProps) {
+function TimepieceModal({ product, brands, categories = [], submitting, onClose, onSave }: TimepieceModalProps) {
   const [name, setName] = useState(product?.name || '');
-  const [brand, setBrand] = useState(product?.brand || brands[0] || 'Rolex');
+  const [brand, setBrand] = useState(product?.brand || '');
   const [sku, setSku] = useState(product?.sku || '');
-  const [category, setCategory] = useState(product?.categories?.[0] || "Men's Watches");
-  const [price, setPrice] = useState(product ? String(product.price) : '899000');
+  const [category, setCategory] = useState(product?.categories?.[0] || '');
+  const [price, setPrice] = useState(product?.price !== undefined ? String(product.price) : '');
   const [originalPrice, setOriginalPrice] = useState(
-    product?.originalPrice ? String(product.originalPrice) : '999000'
+    product?.originalPrice !== undefined ? String(product.originalPrice) : ''
   );
-  const [stock, setStock] = useState(product ? String(product.stock ?? 5) : '5');
-  const [badge, setBadge] = useState(product?.badge || '-10%');
+  const [stock, setStock] = useState(product?.stock !== undefined ? String(product.stock) : '');
+  const [badge, setBadge] = useState(product?.badge || '');
   const [categoriesInput, setCategoriesInput] = useState(
-    product?.categories?.join(', ') || "Luxury, Men's Watches, Automatic"
+    product?.categories?.join(', ') || ''
   );
-  const [image, setImage] = useState(
-    product?.image ||
-      'https://watchtown.in/wp-content/uploads/2025/11/Coach-Delancey-Rose-Gold-Black-Dial-36mm-1-600x600.jpg'
-  );
-  const [description, setDescription] = useState(
-    product?.description ||
-      'Master crafted luxury timepiece engineered with high-precision automatic movement, scratch-resistant sapphire glass, and stainless steel architecture.'
-  );
+  const [image, setImage] = useState(product?.image || '');
+  const [description, setDescription] = useState(product?.description || '');
+  const [imageUrlInput, setImageUrlInput] = useState('');
   const [uploading, setUploading] = useState(false);
+
+  // Clean deduplicated & sorted lists of active brands & categories
+  const brandOptions = useMemo(() => {
+    const set = new Set<string>();
+    if (product?.brand) set.add(product.brand);
+    brands.forEach((b) => {
+      if (b && b.trim()) set.add(b.trim());
+    });
+    return Array.from(set).sort((a, b) => a.localeCompare(b));
+  }, [brands, product?.brand]);
+
+  const categoryOptions = useMemo(() => {
+    const set = new Set<string>();
+    if (product?.categories?.[0]) set.add(product.categories[0]);
+    categories.forEach((c) => {
+      if (c && c.trim()) set.add(c.trim());
+    });
+    return Array.from(set).sort((a, b) => a.localeCompare(b));
+  }, [categories, product?.categories]);
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -2871,11 +5213,17 @@ function TimepieceModal({ product, brands, submitting, onClose, onSave }: Timepi
       alert('Upload failed. Please check S3 settings or paste an image URL.');
     } finally {
       setUploading(false);
+      e.target.value = '';
     }
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!name.trim()) return alert('Please enter watch title / model name');
+    if (!brand.trim()) return alert('Please select a luxury brand');
+    if (!category.trim()) return alert('Please select a primary category');
+    if (!price || isNaN(Number(price))) return alert('Please enter a valid selling price');
+
     const parsedCats = categoriesInput
       .split(',')
       .map((c) => c.trim())
@@ -2887,7 +5235,7 @@ function TimepieceModal({ product, brands, submitting, onClose, onSave }: Timepi
       sku: sku.trim() || `WT-${brand.substring(0, 3).toUpperCase()}-${Date.now().toString().slice(-4)}`,
       price: Number(price),
       originalPrice: originalPrice ? Number(originalPrice) : undefined,
-      stock: Math.max(0, Number(stock)),
+      stock: stock ? Math.max(0, Number(stock)) : 0,
       badge: badge.trim() || undefined,
       categories: parsedCats.length > 0 ? parsedCats : [category],
       image: image.trim(),
@@ -2901,7 +5249,9 @@ function TimepieceModal({ product, brands, submitting, onClose, onSave }: Timepi
         <div className="modal-head">
           <div>
             <div className="modal-title">{product ? 'Edit Luxury Watch' : 'Add Timepiece to Catalog'}</div>
-            <div className="modal-sub">Create or configure specifications, inventory count, and media.</div>
+            <div className="modal-sub">
+              {product ? 'Modify timepiece specifications and inventory.' : 'Enter watch details to publish to the customer storefront.'}
+            </div>
           </div>
           <button type="button" className="modal-close" onClick={onClose}>
             <X size={16} />
@@ -2910,20 +5260,117 @@ function TimepieceModal({ product, brands, submitting, onClose, onSave }: Timepi
 
         <form onSubmit={handleSubmit}>
           <div className="modal-grid">
+            {/* Image Preview & Upload Column */}
             <div>
-              <div className="modal-image-stage">
-                <img
-                  src={image}
-                  alt="Preview"
-                  onError={(e) => {
-                    (e.target as HTMLImageElement).src = 'https://watchtown.in/wp-content/uploads/2025/11/Coach-Delancey-Rose-Gold-Black-Dial-36mm-1-600x600.jpg';
+              <div
+                className="modal-image-stage"
+                style={{
+                  minHeight: 260,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  background: '#070b0e',
+                  border: '1px dashed var(--admin-border)',
+                  borderRadius: 12,
+                  overflow: 'hidden',
+                  position: 'relative',
+                }}
+              >
+                {image ? (
+                  <>
+                    <img
+                      src={image}
+                      alt="Watch Preview"
+                      style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block' }}
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).src =
+                          'https://watchtown.in/wp-content/uploads/2025/04/luxury-watches.png';
+                      }}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setImage('')}
+                      style={{
+                        position: 'absolute',
+                        top: 8,
+                        right: 8,
+                        background: 'rgba(0,0,0,0.75)',
+                        border: 'none',
+                        borderRadius: '50%',
+                        width: 28,
+                        height: 28,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        color: '#fff',
+                        cursor: 'pointer',
+                      }}
+                      title="Clear photo"
+                    >
+                      <X size={14} />
+                    </button>
+                  </>
+                ) : (
+                  <div style={{ textAlign: 'center', padding: '30px 16px', color: 'var(--admin-muted)' }}>
+                    <Upload size={36} style={{ opacity: 0.35, marginBottom: 8 }} />
+                    <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--admin-ink)' }}>No Watch Photo</div>
+                    <div style={{ fontSize: 11, marginTop: 4 }}>Upload image file or paste URL below</div>
+                  </div>
+                )}
+              </div>
+
+              {/* Paste image URL row */}
+              <div style={{ marginTop: 10, display: 'flex', gap: 6 }}>
+                <input
+                  type="text"
+                  placeholder="Paste image URL (https://...)"
+                  value={imageUrlInput}
+                  onChange={(e) => setImageUrlInput(e.target.value)}
+                  style={{
+                    flex: 1,
+                    padding: '8px 10px',
+                    borderRadius: 8,
+                    border: '1px solid var(--admin-border)',
+                    background: 'var(--admin-bg)',
+                    color: 'var(--admin-ink)',
+                    fontSize: 12,
                   }}
                 />
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (imageUrlInput.trim()) {
+                      setImage(imageUrlInput.trim());
+                      setImageUrlInput('');
+                    }
+                  }}
+                  disabled={!imageUrlInput.trim()}
+                  style={{
+                    padding: '8px 12px',
+                    borderRadius: 8,
+                    background: 'var(--admin-surface)',
+                    border: '1px solid var(--admin-border)',
+                    color: 'var(--admin-ink)',
+                    fontSize: 12,
+                    fontWeight: 600,
+                    cursor: imageUrlInput.trim() ? 'pointer' : 'not-allowed',
+                  }}
+                >
+                  Set
+                </button>
               </div>
 
               <label
                 className="btn"
-                style={{ width: '100%', marginTop: 10, cursor: uploading ? 'not-allowed' : 'pointer' }}
+                style={{
+                  width: '100%',
+                  marginTop: 8,
+                  cursor: uploading ? 'not-allowed' : 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 8,
+                }}
               >
                 <Upload size={14} />
                 <span>{uploading ? 'Uploading to S3...' : 'Upload Media File'}</span>
@@ -2937,55 +5384,174 @@ function TimepieceModal({ product, brands, submitting, onClose, onSave }: Timepi
               </label>
             </div>
 
+            {/* Specifications Form Grid */}
             <div className="form-grid">
+              {/* Watch Title / Model Name */}
               <div className="field">
-                <label>Watch Title / Model Name</label>
-                <input required value={name} onChange={(e) => setName(e.target.value)} />
+                <label>
+                  Watch Title / Model Name <span style={{ color: '#ef4444' }}>*</span>
+                </label>
+                <input
+                  required
+                  placeholder="e.g. Rolex Day-Date President Gold Blue Dial"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                />
               </div>
 
+              {/* Luxury Brand Dropdown */}
               <div className="field">
-                <label>Luxury Brand</label>
-                <input required value={brand} onChange={(e) => setBrand(e.target.value)} />
+                <label>
+                  Luxury Brand <span style={{ color: '#ef4444' }}>*</span>
+                </label>
+                <select
+                  required
+                  value={brand}
+                  onChange={(e) => {
+                    const selected = e.target.value;
+                    setBrand(selected);
+                    if (!sku && selected) {
+                      setSku(`WT-${selected.substring(0, 3).toUpperCase()}-${Date.now().toString().slice(-4)}`);
+                    }
+                  }}
+                  style={{
+                    width: '100%',
+                    padding: '10px 12px',
+                    borderRadius: 8,
+                    border: '1px solid var(--admin-border)',
+                    background: 'var(--admin-bg)',
+                    color: brand ? 'var(--admin-ink)' : 'var(--admin-muted)',
+                    fontSize: 13,
+                    cursor: 'pointer',
+                  }}
+                >
+                  <option value="" disabled style={{ color: 'var(--admin-muted)' }}>
+                    -- Select Luxury Brand --
+                  </option>
+                  {brandOptions.map((b) => (
+                    <option key={b} value={b} style={{ background: 'var(--admin-surface)', color: 'var(--admin-ink)' }}>
+                      {b}
+                    </option>
+                  ))}
+                </select>
               </div>
 
+              {/* SKU Identifier */}
               <div className="field">
                 <label>SKU Identifier</label>
-                <input value={sku} placeholder="e.g. WT-ROL-001" onChange={(e) => setSku(e.target.value)} />
+                <input
+                  value={sku}
+                  placeholder="e.g. WT-ROL-001 (auto-generates if empty)"
+                  onChange={(e) => setSku(e.target.value)}
+                />
               </div>
 
+              {/* Primary Category Dropdown */}
               <div className="field">
-                <label>Primary Category</label>
-                <input value={category} onChange={(e) => setCategory(e.target.value)} />
+                <label>
+                  Primary Category <span style={{ color: '#ef4444' }}>*</span>
+                </label>
+                <select
+                  required
+                  value={category}
+                  onChange={(e) => {
+                    const selected = e.target.value;
+                    setCategory(selected);
+                    if (!categoriesInput || categoriesInput === category) {
+                      setCategoriesInput(selected);
+                    }
+                  }}
+                  style={{
+                    width: '100%',
+                    padding: '10px 12px',
+                    borderRadius: 8,
+                    border: '1px solid var(--admin-border)',
+                    background: 'var(--admin-bg)',
+                    color: category ? 'var(--admin-ink)' : 'var(--admin-muted)',
+                    fontSize: 13,
+                    cursor: 'pointer',
+                  }}
+                >
+                  <option value="" disabled style={{ color: 'var(--admin-muted)' }}>
+                    -- Select Primary Category --
+                  </option>
+                  {categoryOptions.map((c) => (
+                    <option key={c} value={c} style={{ background: 'var(--admin-surface)', color: 'var(--admin-ink)' }}>
+                      {c}
+                    </option>
+                  ))}
+                </select>
               </div>
 
+              {/* Selling Price */}
               <div className="field">
-                <label>Selling Price (₹)</label>
-                <input type="number" required value={price} onChange={(e) => setPrice(e.target.value)} />
+                <label>
+                  Selling Price (₹) <span style={{ color: '#ef4444' }}>*</span>
+                </label>
+                <input
+                  type="number"
+                  required
+                  placeholder="e.g. 7499"
+                  value={price}
+                  onChange={(e) => setPrice(e.target.value)}
+                />
               </div>
 
+              {/* Original / MRP Price */}
               <div className="field">
                 <label>Original / MRP Price (₹)</label>
-                <input type="number" value={originalPrice} onChange={(e) => setOriginalPrice(e.target.value)} />
+                <input
+                  type="number"
+                  placeholder="e.g. 13499"
+                  value={originalPrice}
+                  onChange={(e) => setOriginalPrice(e.target.value)}
+                />
               </div>
 
+              {/* Warehouse Stock Units */}
               <div className="field">
-                <label>Warehouse Stock Units</label>
-                <input type="number" required min="0" value={stock} onChange={(e) => setStock(e.target.value)} />
+                <label>
+                  Warehouse Stock Units <span style={{ color: '#ef4444' }}>*</span>
+                </label>
+                <input
+                  type="number"
+                  required
+                  min="0"
+                  placeholder="e.g. 5"
+                  value={stock}
+                  onChange={(e) => setStock(e.target.value)}
+                />
               </div>
 
+              {/* Promo Badge */}
               <div className="field">
                 <label>Promo Badge (Optional)</label>
-                <input value={badge} placeholder="-10%, LIMITED, HOT" onChange={(e) => setBadge(e.target.value)} />
+                <input
+                  value={badge}
+                  placeholder="e.g. -44%, HOT, LIMITED"
+                  onChange={(e) => setBadge(e.target.value)}
+                />
               </div>
 
+              {/* Categories */}
               <div className="field full">
                 <label>Categories (Comma separated)</label>
-                <input value={categoriesInput} onChange={(e) => setCategoriesInput(e.target.value)} />
+                <input
+                  placeholder="e.g. Luxury, Men's Watches, Automatic"
+                  value={categoriesInput}
+                  onChange={(e) => setCategoriesInput(e.target.value)}
+                />
               </div>
 
+              {/* Description */}
               <div className="field full">
                 <label>Watch Description &amp; Craftsmanship</label>
-                <textarea rows={3} value={description} onChange={(e) => setDescription(e.target.value)} />
+                <textarea
+                  rows={3}
+                  placeholder="Describe dial design, movement type, casing finishing, and strap material..."
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                />
               </div>
             </div>
           </div>
