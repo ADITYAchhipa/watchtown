@@ -11,6 +11,7 @@ import {
   ShoppingBag,
   Heart,
   User,
+  Phone,
   PhoneCall,
   ChevronDown,
   Menu,
@@ -157,50 +158,55 @@ export function Header() {
 
   return (
     <header className="wt-luxury-header" role="banner">
-      {/* 1. Top Announcement Bar */}
-      <div className="wt-header-topbar">
+      {/* 1. Main Header Section */}
+      <div className="wt-header-main">
         <div className="wt-header-container">
-          <div className="wt-topbar-content">
-            <div className="wt-topbar-badge">
-              <Sparkles size={13} className="text-amber-400" />
-              <span>India’s #1 Store for 7AAA First Copy Luxury Watches • Free Delivery Available</span>
-            </div>
-            <div className="wt-topbar-links">
-              <Link href="/live-dispatch-proof" className="wt-topbar-link">
-                Live Packing Proof
-              </Link>
-              <Link href="/track-order" className="wt-topbar-link">
-                Track Order
-              </Link>
-              <Link href="/contact-us" className="wt-topbar-link">
-                Contact Us
-              </Link>
+          {/* Top Row: Brand Logo on Left, Phone Support & Cart on Right */}
+          <div className="wt-header-top-row">
+            {/* Logo */}
+            <Link href="/" className="wt-header-logo-link" aria-label="LuxuryTime Home">
+              <span className="wt-logo-text-bold">LUXURY</span>
+              <span className="wt-logo-text-light">TIME</span>
+            </Link>
+
+            {/* Right Action Widgets: 24/7 Phone + Cart */}
+            <div className="wt-header-actions">
+              {/* 24/7 Support */}
+              <a href="tel:+919763642094" className="wt-phone-widget" aria-label="Customer Support">
+                <div className="wt-phone-icon-wrap">
+                  <Phone size={17} strokeWidth={2} />
+                </div>
+                <div className="wt-phone-text-wrap">
+                  <span className="wt-phone-label">24/7 Support</span>
+                  <span className="wt-phone-number">+91 9763642094</span>
+                </div>
+              </a>
+
+              {/* Shopping Bag Button */}
+              <button
+                type="button"
+                className="wt-cart-button"
+                onClick={() => setIsCartOpen(true)}
+                aria-label="Open Shopping Bag"
+              >
+                <div className="wt-cart-icon-wrap">
+                  <ShoppingBag size={24} strokeWidth={1.8} />
+                  <span className="wt-cart-badge">{cartCount}</span>
+                </div>
+                <span className="wt-cart-amount">
+                  ₹{subtotal.toLocaleString('en-IN')}.00
+                </span>
+              </button>
             </div>
           </div>
-        </div>
-      </div>
 
-      {/* 2. Main Header Row (Logo, Search, Phone Support, Cart) */}
-      <div className="wt-header-main">
-        <div className="wt-header-container" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
-          {/* Logo */}
-          <Link href="/" className="wt-header-logo-link" aria-label="WatchTown Home">
-            <img
-              src="https://watchtown.in/wp-content/uploads/2025/04/watch-town-logo.svg"
-              alt="WatchTown Luxury Watches"
-              className="wt-header-logo-img"
-              width={230}
-              height={46}
-            />
-          </Link>
-
-          {/* Luxury Search Bar */}
+          {/* Bottom Row: Full-width Search Bar */}
           <div className="wt-search-container" ref={searchContainerRef}>
             <form onSubmit={handleSearchSubmit} className="wt-search-form" role="search">
               <input
                 type="text"
                 className="wt-search-input"
-                placeholder="Search luxury watches, Rolex, Fossil, Hublot, Patek..."
+                placeholder="Search for exceptional timepieces..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 onFocus={() => {
@@ -209,7 +215,7 @@ export function Header() {
                 aria-label="Search watches"
               />
 
-              {searchQuery && (
+              {searchQuery ? (
                 <button
                   type="button"
                   className="wt-search-clear-btn"
@@ -218,53 +224,17 @@ export function Header() {
                     setIsSearchDropdownOpen(false);
                   }}
                   aria-label="Clear search"
-                  style={{
-                    position: 'absolute',
-                    right: 46,
-                    top: '50%',
-                    transform: 'translateY(-50%)',
-                    background: 'none',
-                    border: 'none',
-                    color: '#94a3b8',
-                    cursor: 'pointer',
-                    padding: 4,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    zIndex: 10,
-                  }}
                 >
-                  <X size={16} />
+                  <X size={17} />
                 </button>
-              )}
+              ) : null}
 
               <button
                 type="submit"
                 className="wt-search-submit-btn"
                 aria-label="Submit search"
-                style={{
-                  position: 'absolute',
-                  right: 5,
-                  top: '50%',
-                  transform: 'translateY(-50%)',
-                  width: 36,
-                  height: 36,
-                  minWidth: 36,
-                  maxWidth: 36,
-                  borderRadius: '50%',
-                  backgroundColor: '#0f172a',
-                  color: '#ffffff',
-                  border: 'none',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  cursor: 'pointer',
-                  padding: 0,
-                  margin: 0,
-                  zIndex: 10,
-                }}
               >
-                <Search size={17} color="#ffffff" strokeWidth={2.4} style={{ display: 'block', margin: 'auto' }} />
+                <Search size={19} color="#94a3b8" strokeWidth={2} />
               </button>
             </form>
 
@@ -305,37 +275,6 @@ export function Header() {
                 </Link>
               </div>
             )}
-          </div>
-
-          {/* Right Action Icons: 24/7 Phone + Cart Pill */}
-          <div className="wt-header-actions">
-            {/* Phone Support */}
-            <a href="tel:+919763642094" className="wt-phone-widget" aria-label="Customer Support">
-              <div className="wt-phone-icon-wrap">
-                <PhoneCall size={18} />
-                <span className="wt-phone-pulse" />
-              </div>
-              <div className="wt-phone-text-wrap">
-                <span className="wt-phone-label">Available 24/7</span>
-                <span className="wt-phone-number">(+91) 9763642094</span>
-              </div>
-            </a>
-
-            {/* Shopping Bag Button */}
-            <button
-              type="button"
-              className="wt-cart-button"
-              onClick={() => setIsCartOpen(true)}
-              aria-label="Open Shopping Bag"
-            >
-              <div className="wt-cart-icon-wrap">
-                <ShoppingBag size={21} />
-                <span className="wt-cart-badge">{cartCount}</span>
-              </div>
-              <span className="wt-cart-amount">
-                ₹{subtotal.toLocaleString('en-IN')}.00
-              </span>
-            </button>
           </div>
         </div>
       </div>

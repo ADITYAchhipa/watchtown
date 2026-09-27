@@ -19,22 +19,28 @@ let localCache: Product[] | null = null;
 let mongoSeeded = false;
 
 function readProductsFromFile(): Product[] {
-  if (localCache) return localCache;
+  if (localCache && localCache.length > 0) return localCache;
 
   ensureDbDirectory();
   if (!fs.existsSync(PRODUCTS_FILE)) {
-    fs.writeFileSync(PRODUCTS_FILE, JSON.stringify([], null, 2), 'utf8');
-    localCache = [];
+    fs.writeFileSync(PRODUCTS_FILE, JSON.stringify(SEED_PRODUCTS, null, 2), 'utf8');
+    localCache = [...SEED_PRODUCTS];
     return localCache;
   }
 
   try {
     const raw = fs.readFileSync(PRODUCTS_FILE, 'utf8');
-    localCache = JSON.parse(raw) as Product[];
+    const parsed = JSON.parse(raw) as Product[];
+    if (!parsed || parsed.length === 0) {
+      fs.writeFileSync(PRODUCTS_FILE, JSON.stringify(SEED_PRODUCTS, null, 2), 'utf8');
+      localCache = [...SEED_PRODUCTS];
+      return localCache;
+    }
+    localCache = parsed;
     return localCache;
   } catch (err) {
     console.error('Failed to read products DB:', err);
-    localCache = [];
+    localCache = [...SEED_PRODUCTS];
     return localCache;
   }
 }

@@ -26,8 +26,8 @@ body {
   color: #333333;
   background-color: #ffffff;
   font-family: var(--font-urbanist);
-  font-size: 15px;
-  line-height: 1.6;
+  font-size: 14px;
+  line-height: 1.5;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   overflow-x: hidden;
@@ -371,42 +371,155 @@ a {
   color: #0f172a;
 }
 
-/* Main Header Row */
+/* Main Header Section */
 .wt-header-main {
-  padding: 16px 0;
+  padding: 18px 0 16px 0;
+  background: #ffffff;
+}
+
+.wt-header-top-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 28px;
-  background: #ffffff;
+  width: 100%;
+  margin-bottom: 14px;
 }
 
 /* Logo */
 .wt-header-logo-link {
   display: inline-flex;
   align-items: center;
-  flex-shrink: 0;
+  gap: 2px;
   text-decoration: none;
-  transition: opacity 0.25s ease, transform 0.25s ease;
+  transition: opacity 0.2s ease;
 }
 
 .wt-header-logo-link:hover {
-  opacity: 0.88;
-  transform: scale(1.01);
+  opacity: 0.85;
 }
 
-.wt-header-logo-img {
-  max-height: 48px;
-  width: auto;
-  object-fit: contain;
-  display: block;
-  filter: brightness(0); /* crisp black rendering on white */
+.wt-logo-text-bold {
+  font-size: 25px;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  color: #0f172a;
+  font-family: var(--font-urbanist), sans-serif;
 }
 
-/* Search Bar */
+.wt-logo-text-light {
+  font-size: 25px;
+  font-weight: 400;
+  letter-spacing: 0.5px;
+  color: #64748b;
+  font-family: var(--font-urbanist), sans-serif;
+}
+
+/* Header Actions */
+.wt-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 28px;
+  flex-shrink: 0;
+}
+
+/* 24/7 Phone Widget */
+.wt-phone-widget {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  text-decoration: none;
+  color: #0f172a;
+  transition: transform 0.2s ease;
+}
+
+.wt-phone-widget:hover {
+  transform: translateY(-1px);
+}
+
+.wt-phone-icon-wrap {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: #f1f5f9;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #334155;
+}
+
+.wt-phone-text-wrap {
+  display: flex;
+  flex-direction: column;
+}
+
+.wt-phone-label {
+  font-size: 13.5px;
+  font-weight: 700;
+  color: #0f172a;
+  line-height: 1.25;
+}
+
+.wt-phone-number {
+  font-size: 12.5px;
+  font-weight: 500;
+  color: #64748b;
+  line-height: 1.25;
+}
+
+/* Header Cart Button */
+.wt-cart-button {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  color: #0f172a;
+  text-decoration: none;
+  padding: 0;
+  transition: transform 0.2s ease;
+}
+
+.wt-cart-button:hover {
+  transform: translateY(-1px);
+}
+
+.wt-cart-icon-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #0f172a;
+}
+
+.wt-cart-badge {
+  position: absolute;
+  top: -6px;
+  right: -8px;
+  background: #0f172a;
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: 700;
+  height: 17px;
+  min-width: 17px;
+  padding: 0 4px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1.5px solid #ffffff;
+}
+
+.wt-cart-amount {
+  font-size: 16px;
+  font-weight: 700;
+  color: #0f172a;
+  letter-spacing: 0.1px;
+}
+
+/* Full Width Search Bar */
 .wt-search-container {
-  flex: 1;
-  max-width: 620px;
+  width: 100%;
   position: relative;
 }
 
@@ -419,18 +532,18 @@ a {
 
 .wt-search-input {
   width: 100%;
-  height: 46px;
-  background: #f8fafc !important;
+  height: 48px;
+  background: #ffffff !important;
   color: #0f172a !important;
   border: 1.5px solid #e2e8f0 !important;
-  border-radius: 9999px !important;
-  padding: 0 54px 0 22px !important;
-  font-size: 14px !important;
+  border-radius: 8px !important;
+  padding: 0 45px 0 16px !important;
+  font-size: 14.5px !important;
   font-family: var(--font-urbanist), sans-serif !important;
-  font-weight: 500 !important;
+  font-weight: 400 !important;
   outline: none !important;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04) inset !important;
-  transition: all 0.25s ease !important;
+  box-shadow: none !important;
+  transition: border-color 0.2s ease !important;
 }
 
 .wt-search-input::placeholder {
@@ -439,14 +552,14 @@ a {
 }
 
 .wt-search-input:focus {
-  background: #ffffff !important;
-  border-color: #0f172a !important;
-  box-shadow: 0 0 0 3px rgba(15, 23, 42, 0.08), 0 4px 12px rgba(0, 0, 0, 0.05) !important;
+  border-color: #cbd5e1 !important;
 }
 
 .wt-search-clear-btn {
   position: absolute;
-  right: 52px;
+  right: 44px;
+  top: 50%;
+  transform: translateY(-50%);
   background: none;
   border: none;
   color: #94a3b8;
@@ -456,6 +569,7 @@ a {
   align-items: center;
   justify-content: center;
   transition: color 0.2s ease;
+  z-index: 10;
 }
 
 .wt-search-clear-btn:hover {
@@ -464,16 +578,10 @@ a {
 
 .wt-search-submit-btn {
   position: absolute !important;
-  right: 5px !important;
+  right: 14px !important;
   top: 50% !important;
   transform: translateY(-50%) !important;
-  width: 36px !important;
-  height: 36px !important;
-  min-width: 36px !important;
-  max-width: 36px !important;
-  border-radius: 50% !important;
-  background: #0f172a !important;
-  color: #ffffff !important;
+  background: transparent !important;
   border: none !important;
   outline: none !important;
   display: flex !important;
@@ -483,41 +591,35 @@ a {
   padding: 0 !important;
   margin: 0 !important;
   z-index: 10 !important;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15) !important;
-  transition: background-color 0.25s ease, transform 0.2s ease, box-shadow 0.25s ease !important;
-}
-
-.wt-search-submit-btn:hover {
-  background: #d4af37 !important;
-  color: #000000 !important;
-  transform: translateY(-50%) scale(1.06) !important;
-  box-shadow: 0 3px 10px rgba(212, 175, 55, 0.4) !important;
+  box-shadow: none !important;
+  width: auto !important;
+  height: auto !important;
+  min-width: 0 !important;
 }
 
 .wt-search-submit-btn svg {
   display: block !important;
-  width: 17px !important;
-  height: 17px !important;
-  stroke: #ffffff !important;
-  stroke-width: 2.4 !important;
+  width: 19px !important;
+  height: 19px !important;
+  stroke: #94a3b8 !important;
+  stroke-width: 2 !important;
   fill: none !important;
-  margin: auto !important;
-  pointer-events: none !important;
+  transition: stroke 0.2s ease;
 }
 
 .wt-search-submit-btn:hover svg {
-  stroke: #000000 !important;
+  stroke: #0f172a !important;
 }
 
 /* Search Dropdown Popup */
 .wt-search-dropdown {
   position: absolute;
-  top: calc(100% + 8px);
+  top: calc(100% + 6px);
   left: 0;
   right: 0;
   background: #ffffff;
   border: 1px solid #e2e8f0;
-  border-radius: 12px;
+  border-radius: 10px;
   box-shadow: 0 16px 40px rgba(0, 0, 0, 0.12);
   overflow: hidden;
   z-index: 1000;
@@ -527,7 +629,7 @@ a {
 @keyframes wtFadeInDown {
   from {
     opacity: 0;
-    transform: translateY(-8px);
+    transform: translateY(-6px);
   }
   to {
     opacity: 1;
@@ -610,136 +712,6 @@ a {
 .wt-search-view-all:hover {
   background: #d4af37;
   color: #000000;
-}
-
-/* Header Right Utilities */
-.wt-header-actions {
-  display: flex;
-  align-items: center;
-  gap: 22px;
-  flex-shrink: 0;
-}
-
-/* 24/7 Phone Widget */
-.wt-phone-widget {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  text-decoration: none;
-  color: #0f172a;
-  transition: transform 0.2s ease;
-}
-
-.wt-phone-widget:hover {
-  transform: translateY(-1px);
-}
-
-.wt-phone-icon-wrap {
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  background: #f8fafc;
-  border: 1.5px solid #e2e8f0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #0f172a;
-  position: relative;
-  transition: border-color 0.2s ease, background-color 0.2s ease;
-}
-
-.wt-phone-widget:hover .wt-phone-icon-wrap {
-  border-color: #d4af37;
-  background: #fffbeb;
-  color: #b45309;
-}
-
-.wt-phone-pulse {
-  position: absolute;
-  width: 8px;
-  height: 8px;
-  background: #10b981;
-  border-radius: 50%;
-  top: 1px;
-  right: 1px;
-  box-shadow: 0 0 0 2px #ffffff;
-}
-
-.wt-phone-text-wrap {
-  display: flex;
-  flex-direction: column;
-}
-
-.wt-phone-label {
-  font-size: 12px;
-  font-weight: 700;
-  font-family: var(--font-playfair), serif;
-  color: #0f172a;
-  letter-spacing: 0.3px;
-  line-height: 1.2;
-}
-
-.wt-phone-number {
-  font-size: 13px;
-  font-weight: 600;
-  color: #475569;
-  line-height: 1.2;
-}
-
-/* Header Cart Button */
-.wt-cart-button {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  background: #f8fafc;
-  border: 1.5px solid #e2e8f0;
-  padding: 7px 16px 7px 12px;
-  border-radius: 9999px;
-  cursor: pointer;
-  color: #0f172a;
-  text-decoration: none;
-  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-.wt-cart-button:hover {
-  background: #ffffff;
-  border-color: #0f172a;
-  transform: translateY(-2px);
-  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.08);
-}
-
-.wt-cart-icon-wrap {
-  position: relative;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #0f172a;
-}
-
-.wt-cart-badge {
-  position: absolute;
-  top: -8px;
-  right: -10px;
-  background: #e11d48;
-  color: #ffffff;
-  font-size: 10.5px;
-  font-weight: 800;
-  height: 18px;
-  min-width: 18px;
-  padding: 0 5px;
-  border-radius: 9999px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border: 2px solid #ffffff;
-  box-shadow: 0 2px 6px rgba(225, 29, 72, 0.3);
-}
-
-.wt-cart-amount {
-  font-size: 13.5px;
-  font-weight: 700;
-  color: #0f172a;
-  letter-spacing: 0.3px;
 }
 
 /* ==========================================================================
@@ -1073,4 +1045,921 @@ a {
   }
 }
 
+/* ==========================================================================
+   Header Text to Slider Spacing Optimization
+   ========================================================================== */
+.wt-main-intro-container {
+  width: 100%;
+  padding-top: 14px;
+  padding-bottom: 8px;
+}
 
+.elementor-element-670d1bb {
+  margin-bottom: 2px !important;
+  padding-bottom: 0 !important;
+}
+
+.elementor-element-bd30ea2 .elementor-heading-title {
+  margin-top: 0 !important;
+  margin-bottom: 4px !important;
+  font-size: 22px !important;
+  line-height: 1.25 !important;
+}
+
+.elementor-element-34070dd p {
+  margin-top: 0 !important;
+  margin-bottom: 12px !important;
+  font-size: 13.5px !important;
+  line-height: 1.45 !important;
+  color: #64748b !important;
+}
+
+/* ==========================================================================
+   Featured Promo Banner Carousel (Full-Width Auto Single-Slide without Dots)
+   ========================================================================== */
+.wt-gender-slider-container-wrap,
+.wt-single-promo-slider-section {
+  width: 100%;
+  padding-top: 0 !important;
+  padding-bottom: 8px !important;
+  margin-top: 0 !important;
+}
+
+.wt-single-carousel-wrapper {
+  position: relative;
+  width: 100%;
+  user-select: none;
+}
+
+.wt-single-carousel-container {
+  position: relative;
+  width: 100%;
+}
+
+.wt-single-track-overflow {
+  overflow: hidden;
+  width: 100%;
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+}
+
+.wt-single-track {
+  display: flex;
+  width: 100%;
+  will-change: transform;
+}
+
+.wt-single-slide-item {
+  flex: 0 0 100%;
+  width: 100%;
+  min-width: 100%;
+  box-sizing: border-box;
+}
+
+.wt-single-banner-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 330px;
+  padding: 36px 54px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  position: relative;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+/* Left Content Area */
+.wt-single-banner-content {
+  flex: 1 1 58%;
+  max-width: 580px;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.wt-single-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  backdrop-filter: blur(8px);
+  padding: 5px 12px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 1.2px;
+  color: #e2e8f0;
+  text-transform: uppercase;
+  margin-bottom: 14px;
+}
+
+.wt-single-badge-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  display: inline-block;
+  box-shadow: 0 0 8px currentColor;
+}
+
+.wt-single-banner-title {
+  display: flex;
+  flex-direction: column;
+  font-size: 34px;
+  font-weight: 900;
+  line-height: 1.14;
+  letter-spacing: -0.5px;
+  color: #ffffff;
+  margin: 0 0 10px 0;
+  text-transform: uppercase;
+  font-family: inherit;
+}
+
+.wt-title-line-1 {
+  color: #ffffff;
+}
+
+.wt-title-line-2 {
+  color: #ffffff;
+}
+
+.wt-single-banner-desc {
+  font-size: 14px;
+  line-height: 1.5;
+  color: #cbd5e1;
+  margin: 0 0 20px 0;
+  max-width: 460px;
+}
+
+.wt-single-banner-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: #ffee00;
+  color: #000000;
+  font-size: 12.5px;
+  font-weight: 800;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  padding: 11px 24px;
+  border-radius: 4px;
+  text-decoration: none;
+  transition: all 0.25s ease;
+  box-shadow: 0 4px 16px rgba(255, 238, 0, 0.25);
+}
+
+.wt-single-banner-btn:hover {
+  background: #ffd700;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(255, 215, 0, 0.4);
+  color: #000000;
+}
+
+/* Right Visual Area */
+.wt-single-banner-visual {
+  flex: 0 0 38%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  height: 100%;
+  background: transparent !important;
+}
+
+.wt-single-visual-glow {
+  position: absolute;
+  width: 280px;
+  height: 280px;
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.wt-single-image-frame {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  max-width: 320px;
+  max-height: 280px;
+  background: transparent !important;
+  background-color: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+
+.wt-single-watch-img {
+  max-width: 100%;
+  max-height: 260px;
+  width: auto;
+  height: auto;
+  object-fit: contain;
+  background: transparent !important;
+  background-color: transparent !important;
+  border: none !important;
+  outline: none !important;
+  box-shadow: none !important;
+  filter: drop-shadow(0 15px 30px rgba(0, 0, 0, 0.85));
+  transition: transform 0.5s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.wt-single-banner-card:hover .wt-single-watch-img {
+  transform: scale(1.05) rotate(-1.5deg);
+}
+
+/* ==========================================================================
+   Hot Categories & Info Box Layout & Spacing Fixes (Prevents Overlap & White Gap)
+   ========================================================================== */
+.elementor-element-2ca1e1f,
+.elementor-element-88f33de,
+.elementor-element-d7ef9dc,
+.elementor-element-d71c4ee {
+  height: auto !important;
+  min-height: 0 !important;
+  margin-top: 0 !important;
+  margin-bottom: 0 !important;
+  padding-top: 0 !important;
+  padding-bottom: 0 !important;
+  display: block !important;
+  clear: both !important;
+}
+
+.elementor-element-43cc075 {
+  margin-top: 10px !important;
+  margin-bottom: 20px !important;
+  height: auto !important;
+  min-height: 0 !important;
+  display: block !important;
+  clear: both !important;
+}
+
+.elementor-element-b0f92d7 {
+  margin-top: 10px !important;
+  margin-bottom: 30px !important;
+  height: auto !important;
+  min-height: 0 !important;
+  display: block !important;
+  clear: both !important;
+}
+
+/* Category Containers, Wrappers & Grids */
+.wd-cats,
+.wd-cats-element,
+.wd-carousel-container.wd-cats-element {
+  margin: 0 0 15px 0 !important;
+  padding: 0 !important;
+  height: auto !important;
+  min-height: 0 !important;
+  display: block !important;
+  overflow: visible !important;
+  clear: both !important;
+}
+
+.wd-cats .wd-carousel-inner,
+.wd-cats .wd-carousel {
+  height: auto !important;
+  min-height: 0 !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  display: block !important;
+  overflow: visible !important;
+}
+
+.wd-cats .wd-carousel-wrap {
+  display: grid !important;
+  grid-template-columns: repeat(4, 1fr) !important;
+  gap: 20px !important;
+  width: 100% !important;
+  height: auto !important;
+  min-height: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  transform: none !important;
+  position: relative !important;
+}
+
+.wd-cats .wd-carousel-item {
+  width: auto !important;
+  max-width: 100% !important;
+  height: auto !important;
+  min-height: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  display: block !important;
+}
+
+.wd-cats .category-grid-item,
+.wd-cats .category-grid-item.cat-design-alt {
+  height: auto !important;
+  min-height: 0 !important;
+  padding: 8px !important;
+  margin: 0 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  justify-content: flex-start !important;
+  text-align: center !important;
+}
+
+.wd-cats .wd-cat-inner,
+.wd-cats .wrapp-category {
+  height: auto !important;
+  min-height: 0 !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  justify-content: flex-start !important;
+  width: 100% !important;
+}
+
+.wd-cats .category-image-wrapp,
+.wd-cats .wd-cat-thumb {
+  max-width: 120px !important;
+  max-height: 120px !important;
+  width: 120px !important;
+  height: 120px !important;
+  margin: 0 auto 10px auto !important;
+  padding: 0 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  overflow: hidden !important;
+  background: transparent !important;
+  flex-shrink: 0 !important;
+}
+
+.wd-cats .category-image-wrapp img,
+.wd-cats .wd-cat-thumb img,
+.wd-cats .category-grid-item img {
+  max-width: 100% !important;
+  max-height: 110px !important;
+  width: auto !important;
+  height: auto !important;
+  object-fit: contain !important;
+  display: block !important;
+  margin: 0 auto !important;
+  transition: transform 0.3s ease !important;
+}
+
+.wd-cats .category-grid-item:hover .category-image-wrapp img,
+.wd-cats .category-grid-item:hover .wd-cat-thumb img {
+  transform: scale(1.08) !important;
+}
+
+.wd-cats .wd-cat-content {
+  margin: 0 !important;
+  padding: 0 !important;
+  height: auto !important;
+  min-height: 0 !important;
+}
+
+.wd-cats .wd-entities-title {
+  font-size: 13.5px !important;
+  font-weight: 700 !important;
+  color: #1e293b !important;
+  margin: 6px 0 0 0 !important;
+  padding: 0 !important;
+  line-height: 1.3 !important;
+  text-align: center !important;
+}
+
+.wd-cats .wd-nav-arrows {
+  display: none !important;
+}
+
+/* Black Info Strip Container */
+.wd-negative-gap.elementor-element-8037110,
+.elementor-element-8037110 {
+  margin-top: 40px !important;
+  margin-bottom: 35px !important;
+  padding: 16px 24px !important;
+  position: relative !important;
+  z-index: 10 !important;
+  clear: both !important;
+  display: block !important;
+  width: 100% !important;
+  height: auto !important;
+  min-height: 0 !important;
+  background-color: #1c1d21 !important;
+  border-radius: 50px !important;
+  overflow: visible !important;
+}
+
+.elementor-element-8037110 .wd-carousel-wrap {
+  display: flex !important;
+  flex-direction: row !important;
+  flex-wrap: nowrap !important;
+  justify-content: space-between !important;
+  align-items: center !important;
+  width: 100% !important;
+  gap: 15px !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+.elementor-element-8037110 .wd-carousel-item {
+  flex: 1 1 0 !important;
+  min-width: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+.elementor-element-8037110 .info-box-wrapper {
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+.elementor-element-8037110 .wd-info-box {
+  display: flex !important;
+  align-items: center !important;
+  gap: 10px !important;
+  margin: 0 !important;
+}
+
+.elementor-element-8037110 .info-box-title {
+  font-size: 13px !important;
+  color: #ffffff !important;
+  margin: 0 !important;
+  white-space: nowrap !important;
+}
+
+.elementor-element-8037110 .info-box-inner p {
+  font-size: 11.5px !important;
+  color: #94a3b8 !important;
+  margin: 0 !important;
+  white-space: nowrap !important;
+}
+
+/* Responsive Breakpoints */
+@media (max-width: 991px) {
+  .wt-single-banner-card {
+    padding: 28px 30px;
+    min-height: 290px;
+  }
+
+  .wt-single-banner-title {
+    font-size: 28px;
+  }
+
+  .wt-single-banner-desc {
+    font-size: 13.5px;
+    margin-bottom: 16px;
+  }
+
+  .wt-single-banner-btn {
+    padding: 10px 20px;
+    font-size: 12px;
+  }
+
+  .wt-single-watch-img {
+    max-height: 200px;
+  }
+
+  .wd-cats .category-image-wrapp,
+  .wd-cats .wd-cat-thumb {
+    max-width: 100px !important;
+    max-height: 100px !important;
+    width: 100px !important;
+    height: 100px !important;
+  }
+
+  .elementor-element-8037110 {
+    border-radius: 20px !important;
+  }
+
+  .elementor-element-8037110 .wd-carousel-wrap {
+    flex-wrap: wrap !important;
+    justify-content: center !important;
+    gap: 16px !important;
+  }
+}
+
+@media (max-width: 768px) {
+  .wt-single-banner-card {
+    flex-direction: column-reverse;
+    padding: 24px 18px 28px;
+    text-align: center;
+    min-height: auto;
+  }
+
+  .wt-single-banner-content {
+    align-items: center;
+    max-width: 100%;
+    margin-top: 16px;
+  }
+
+  .wt-single-banner-title {
+    font-size: 24px;
+    margin-bottom: 8px;
+  }
+
+  .wt-single-banner-desc {
+    font-size: 12.5px;
+    margin-bottom: 16px;
+  }
+
+  .wt-single-banner-btn {
+    width: 100%;
+    justify-content: center;
+    padding: 11px 18px;
+    font-size: 12px;
+  }
+
+  .wt-single-banner-visual {
+    width: 100%;
+    height: 160px;
+  }
+
+  .wt-single-watch-img {
+    max-height: 150px;
+  }
+
+  .wd-cats .wd-carousel-wrap {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 12px !important;
+  }
+
+  .wd-cats .category-image-wrapp,
+  .wd-cats .wd-cat-thumb {
+    max-width: 85px !important;
+    max-height: 85px !important;
+    width: 85px !important;
+    height: 85px !important;
+  }
+}
+
+/* ==========================================================================
+   Hero Slider Cool Floating Watch & Glow Animations
+   ========================================================================== */
+@keyframes wtWatchFloat {
+  0% {
+    transform: translateY(0px) rotate(0deg) scale(1);
+  }
+  25% {
+    transform: translateY(-8px) rotate(-1.5deg) scale(1.02);
+  }
+  50% {
+    transform: translateY(-14px) rotate(0.8deg) scale(1.04);
+  }
+  75% {
+    transform: translateY(-6px) rotate(2deg) scale(1.02);
+  }
+  100% {
+    transform: translateY(0px) rotate(0deg) scale(1);
+  }
+}
+
+@keyframes wtGlowPulse {
+  0%, 100% {
+    opacity: 0.45;
+    transform: translate(-50%, -50%) scale(0.92);
+  }
+  50% {
+    opacity: 0.85;
+    transform: translate(-50%, -50%) scale(1.22);
+  }
+}
+
+@keyframes wtDialShimmer {
+  0% {
+    filter: drop-shadow(0 15px 30px rgba(0, 0, 0, 0.9)) brightness(1);
+  }
+  50% {
+    filter: drop-shadow(0 20px 45px rgba(255, 238, 0, 0.45)) brightness(1.08);
+  }
+  100% {
+    filter: drop-shadow(0 15px 30px rgba(0, 0, 0, 0.9)) brightness(1);
+  }
+}
+
+.wt-single-visual-glow {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 320px;
+  height: 320px;
+  border-radius: 50%;
+  animation: wtGlowPulse 4s ease-in-out infinite;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.wt-single-watch-img.wt-animated-watch {
+  animation: wtWatchFloat 5s ease-in-out infinite, wtDialShimmer 6s ease-in-out infinite;
+  transform-origin: center center;
+  position: relative;
+  z-index: 2;
+  will-change: transform, filter;
+  transition: transform 0.4s ease;
+}
+
+.wt-single-banner-card:hover .wt-single-watch-img.wt-animated-watch {
+  animation-play-state: paused;
+  transform: scale(1.1) rotate(-2deg);
+}
+
+/* ==========================================================================
+   Premium Product Card Component (Matches Screenshot UI Design)
+   ========================================================================== */
+.wt-premium-product-card {
+  background: #ffffff !important;
+  border-radius: 24px !important;
+  padding: 12px !important;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05) !important;
+  border: 1px solid #f1f5f9 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  transition: transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.3s ease !important;
+  position: relative !important;
+  overflow: hidden !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
+}
+
+.wt-premium-product-card:hover {
+  transform: translateY(-5px) !important;
+  box-shadow: 0 16px 32px -8px rgba(0, 0, 0, 0.12) !important;
+}
+
+/* Media Box */
+.wt-card-media-box {
+  position: relative !important;
+  border-radius: 20px !important;
+  background-color: #0f172a !important;
+  overflow: hidden !important;
+  aspect-ratio: 1 / 1 !important;
+  width: 100% !important;
+  display: block !important;
+}
+
+/* Green Discount Badge on Top-Left */
+.wt-card-discount-pill {
+  position: absolute !important;
+  top: 14px !important;
+  left: 14px !important;
+  background: #50cb55 !important;
+  color: #ffffff !important;
+  font-weight: 800 !important;
+  font-size: 13px !important;
+  padding: 5px 12px !important;
+  border-radius: 24px !important;
+  z-index: 10 !important;
+  box-shadow: 0 3px 10px rgba(80, 203, 85, 0.35) !important;
+  letter-spacing: 0.3px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  line-height: 1.2 !important;
+}
+
+/* Floating Vertical White Capsule on Top-Right (Appears on Hover) */
+.wt-card-action-capsule {
+  position: absolute !important;
+  top: 14px !important;
+  right: 14px !important;
+  background: #ffffff !important;
+  border-radius: 35px !important;
+  padding: 10px 8px !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 14px !important;
+  align-items: center !important;
+  justify-content: center !important;
+  z-index: 10 !important;
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.18) !important;
+  width: 44px !important;
+  min-width: 44px !important;
+  box-sizing: border-box !important;
+  opacity: 0 !important;
+  transform: translateX(10px) scale(0.95) !important;
+  pointer-events: none !important;
+  transition: opacity 0.28s cubic-bezier(0.2, 0.8, 0.2, 1), transform 0.28s cubic-bezier(0.2, 0.8, 0.2, 1) !important;
+}
+
+.wt-premium-product-card:hover .wt-card-action-capsule,
+.wt-premium-product-card:focus-within .wt-card-action-capsule {
+  opacity: 1 !important;
+  transform: translateX(0) scale(1) !important;
+  pointer-events: auto !important;
+}
+
+@media (hover: none) {
+  .wt-card-action-capsule {
+    opacity: 1 !important;
+    transform: none !important;
+    pointer-events: auto !important;
+  }
+}
+
+.wt-capsule-btn {
+  background: transparent !important;
+  background-color: transparent !important;
+  border: none !important;
+  cursor: pointer !important;
+  width: 28px !important;
+  height: 28px !important;
+  min-width: 28px !important;
+  min-height: 28px !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  border-radius: 50% !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  color: #1e293b !important;
+  outline: none !important;
+  box-shadow: none !important;
+  text-decoration: none !important;
+  transition: transform 0.2s ease, color 0.2s ease !important;
+}
+
+.wt-capsule-btn svg {
+  width: 18px !important;
+  height: 18px !important;
+  stroke: #1e293b !important;
+  stroke-width: 2.2 !important;
+  fill: none !important;
+  display: block !important;
+  background: transparent !important;
+  background-color: transparent !important;
+}
+
+.wt-capsule-btn.active-wishlist svg {
+  stroke: #e11d48 !important;
+  fill: #e11d48 !important;
+}
+
+.wt-capsule-btn:hover {
+  transform: scale(1.18) !important;
+  color: #b89230 !important;
+}
+
+.wt-capsule-btn:hover svg {
+  stroke: #b89230 !important;
+}
+
+/* Image Link & Image (Full width/height inside media box) */
+.wt-card-img-link {
+  position: absolute !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  display: block !important;
+  text-decoration: none !important;
+  z-index: 1 !important;
+  overflow: hidden !important;
+}
+
+.wt-card-product-img {
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: cover !important;
+  display: block !important;
+  transition: transform 0.4s ease !important;
+}
+
+.wt-premium-product-card:hover .wt-card-product-img {
+  transform: scale(1.08) !important;
+}
+
+/* Full-width Gold/Mustard Add To Cart Banner (Reveals on Hover) */
+.wt-card-cart-gold-bar {
+  position: absolute !important;
+  bottom: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  width: 100% !important;
+  background: #c8a33a !important; /* Exact warm gold/ochre from reference image */
+  color: #ffffff !important;
+  font-weight: 700 !important;
+  font-size: 15px !important;
+  text-align: center !important;
+  padding: 12px 14px !important;
+  border: none !important;
+  cursor: pointer !important;
+  z-index: 5 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 6px !important;
+  opacity: 0 !important;
+  transform: translateY(100%) !important;
+  pointer-events: none !important;
+  transition: opacity 0.28s cubic-bezier(0.2, 0.8, 0.2, 1), transform 0.28s cubic-bezier(0.2, 0.8, 0.2, 1), background 0.25s ease !important;
+  border-bottom-left-radius: 20px !important;
+  border-bottom-right-radius: 20px !important;
+  font-family: inherit !important;
+  box-sizing: border-box !important;
+  margin: 0 !important;
+}
+
+.wt-premium-product-card:hover .wt-card-cart-gold-bar,
+.wt-premium-product-card:focus-within .wt-card-cart-gold-bar {
+  opacity: 1 !important;
+  transform: translateY(0) !important;
+  pointer-events: auto !important;
+}
+
+@media (hover: none) {
+  .wt-card-cart-gold-bar {
+    opacity: 1 !important;
+    transform: translateY(0) !important;
+    pointer-events: auto !important;
+  }
+}
+
+.wt-card-cart-gold-bar:hover:not(:disabled) {
+  background: #d4af37 !important;
+}
+
+.wt-card-cart-gold-bar:disabled {
+  background: #64748b !important;
+  cursor: not-allowed !important;
+  opacity: 0.85 !important;
+}
+
+/* Bottom Text & Dual Prices */
+.wt-card-bottom-info {
+  padding: 14px 4px 4px 4px !important;
+  text-align: center !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 4px !important;
+  background: transparent !important;
+}
+
+.wt-card-title {
+  font-size: 16px !important;
+  font-weight: 700 !important;
+  color: #1e293b !important;
+  margin: 0 !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  font-family: var(--font-urbanist), sans-serif !important;
+  text-align: center !important;
+}
+
+.wt-card-title a {
+  color: #1e293b !important;
+  text-decoration: none !important;
+  transition: color 0.2s ease !important;
+}
+
+.wt-card-title a:hover {
+  color: #c8a33a !important;
+}
+
+.wt-card-price-row {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 8px !important;
+  margin-top: 2px !important;
+}
+
+.wt-card-old-price {
+  font-size: 14px !important;
+  color: #94a3b8 !important;
+  text-decoration: line-through !important;
+  font-weight: 500 !important;
+}
+
+.wt-card-current-price {
+  font-size: 16.5px !important;
+  font-weight: 800 !important;
+  color: #0f172a !important;
+}
+
+/* ==========================================================================
+   Customer Reviews WhatsApp Slider Styling
+   ========================================================================== */
+.wt-whatsapp-card:hover {
+  transform: translateY(-6px) !important;
+  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.6) !important;
+  border-color: rgba(212, 175, 55, 0.4) !important;
+}
+
+.wt-reviews-nav-btn:hover {
+  background: #d4af37 !important;
+  color: #000000 !important;
+  border-color: #d4af37 !important;
+  transform: translateY(-50%) scale(1.1) !important;
+}
+
+@media (max-width: 768px) {
+  .wt-customer-reviews-section {
+    padding: 45px 0 55px 0 !important;
+  }
+  .wt-whatsapp-card {
+    height: 460px !important;
+  }
+}
